@@ -5,6 +5,30 @@ export interface ExcelRow {
   [key: string]: string | number | boolean | null | undefined;
 }
 
+// Helper function to check if a value is an Excel serial date number
+function isExcelSerialDate(value: unknown): boolean {
+  if (typeof value !== 'number') return false;
+  // Excel dates are typically between 1 (1900-01-01) and ~60000 (year 2100+)
+  // We'll be conservative and check for reasonable date range
+  return value >= 1 && value <= 100000;
+}
+
+// Helper function to convert Excel serial date to YYYY-MM-DD format
+function convertExcelSerialToDate(serial: number): string {
+  // Excel stores dates as days since 1900-01-01 (with a leap year bug for 1900)
+  // JavaScript Date uses milliseconds since 1970-01-01
+  const excelEpoch = new Date(1899, 11, 30); // December 30, 1899
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const date = new Date(excelEpoch.getTime() + serial * msPerDay);
+
+  // Format as YYYY-MM-DD
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
 export const excelUtils = {
   generateTemplate(columns: ColumnConfiguration[]): void {
     // Debug: Log all columns received
@@ -173,7 +197,20 @@ export const excelUtils = {
 
                   if (columnConfig) {
                     const value = row[index];
-                    rowData[columnConfig.column_name] = value !== undefined && value !== null ? value.toString().trim() : '';
+
+                    // Check if this is a date field and the value is an Excel serial number
+                    const isDateField = columnConfig.column_name === 'sanctionDate' ||
+                      columnConfig.column_name === 'lastPaidDate';
+
+                    if (isDateField && isExcelSerialDate(value)) {
+                      // Convert Excel serial number to YYYY-MM-DD format
+                      rowData[columnConfig.column_name] = convertExcelSerialToDate(value as number);
+                    } else if (value !== undefined && value !== null) {
+                      // For non-date fields or already-formatted dates, convert to string
+                      rowData[columnConfig.column_name] = value.toString().trim();
+                    } else {
+                      rowData[columnConfig.column_name] = '';
+                    }
                   }
                 }
               });
