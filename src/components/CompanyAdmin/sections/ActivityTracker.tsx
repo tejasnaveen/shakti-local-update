@@ -23,6 +23,15 @@ export const ActivityTracker: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [officeHours, setOfficeHours] = useState<{ start: string; end: string } | null>(null);
+    const [currentTime, setCurrentTime] = useState(new Date());
+
+    // Update current time every second
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     const fetchActivityData = React.useCallback(async () => {
         if (!user?.tenantId) return;
@@ -83,11 +92,81 @@ export const ActivityTracker: React.FC = () => {
         return matchesSearch && matchesStatus;
     });
 
+    // Calculate real-time metrics
+    const realTimeData = filteredData.map(log => {
+        if (!log.rawLoginTime) return log;
+
+        const now = currentTime;
+        const loginTime = new Date(log.rawLoginTime);
+        const lastActive = log.rawLastActive ? new Date(log.rawLastActive) : new Date();
+
+        // Calculate durations in minutes
+        const diffMs = now.getTime() - lastActive.getTime();
+        const inactiveMinutes = Math.floor(diffMs / 60000);
+        const sessionDurationMinutes = Math.floor((now.getTime() - loginTime.getTime()) / 60000);
+
+        // Break Time
+        let totalBreakMinutes = log.todayTotalBreakMinutes || 0;
+        if (log.status === 'Break' && log.currentBreakStart) {
+            const breakStart = new Date(log.currentBreakStart);
+            const currentBreakDuration = Math.floor((now.getTime() - breakStart.getTime()) / 60000);
+            totalBreakMinutes += currentBreakDuration;
+        }
+
+        // Idle Time Logic
+        let status = log.status;
+        let idleMinutes = 0;
+
+        // Parse existing idle time string "Xm" -> number
+        const existingIdleMatch = log.idleTime.match(/(\d+)m/);
+        if (existingIdleMatch) {
+            idleMinutes = parseInt(existingIdleMatch[1], 10);
+        }
+
+        // Real-time Idle Detection (3 minutes threshold)
+        if (status === 'Online' && inactiveMinutes > 3) {
+            status = 'Idle';
+            // If just became idle, the idle time is the inactive time - 3 minutes (grace period)
+            // Or typically we count the whole inactive duration as idle once it crosses threshold
+            idleMinutes = inactiveMinutes;
+        } else if (status === 'Idle') {
+            idleMinutes = inactiveMinutes;
+        }
+
+        // Productive Time = Session Duration - (Total Break + Idle Time)
+        // Ensure we don't go negative
+        const productiveMinutes = Math.max(0, sessionDurationMinutes - totalBreakMinutes - idleMinutes);
+
+        // Format helpers
+        const formatDuration = (mins: number) => {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            if (h > 0) return `${h}h ${m}m`;
+            return `${m}m`;
+        };
+
+        const formatLastActive = (diffMins: number) => {
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins}m ago`;
+            const h = Math.floor(diffMins / 60);
+            return `${h}h ago`;
+        };
+
+        return {
+            ...log,
+            status, // Can change from Online -> Idle dynamically
+            lastActive: formatLastActive(inactiveMinutes),
+            totalBreakTime: formatDuration(totalBreakMinutes),
+            productiveTime: formatDuration(productiveMinutes),
+            idleTime: status === 'Idle' ? `${idleMinutes}m` : '0m'
+        };
+    });
+
     const stats = {
-        total: activityData.length,
-        online: activityData.filter(d => d.status === 'Online').length,
-        onBreak: activityData.filter(d => d.status === 'Break').length,
-        idle: activityData.filter(d => d.status === 'Idle').length
+        total: realTimeData.length,
+        online: realTimeData.filter(d => d.status === 'Online').length,
+        onBreak: realTimeData.filter(d => d.status === 'Break').length,
+        idle: realTimeData.filter(d => d.status === 'Idle').length
     };
 
     if (loading) {
@@ -160,7 +239,11 @@ export const ActivityTracker: React.FC = () => {
                     </h2>
                     <p className="text-sm text-gray-600 mt-1">Monitor real-time telecaller status and productivity</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
+                    <div className="bg-gray-900 text-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 font-mono text-lg">
+                        <Clock className="w-5 h-5 text-blue-400" />
+                        {currentTime.toLocaleTimeString()}
+                    </div>
                     {officeHours && (
                         <div className="px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
                             <div className="flex items-center gap-2 text-sm">
@@ -275,8 +358,8 @@ export const ActivityTracker: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {filteredData.length > 0 ? (
-                                filteredData.map((log) => (
+                            {realTimeData.length > 0 ? (
+                                realTimeData.map((log) => (
                                     <tr key={log.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">

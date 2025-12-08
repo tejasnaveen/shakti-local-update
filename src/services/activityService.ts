@@ -12,6 +12,10 @@ export interface ActivityLog {
     productiveTime: string;
     idleTime: string;
     avatarColor: string;
+    todayTotalBreakMinutes: number;
+    currentBreakStart: string | null;
+    rawLoginTime: string;
+    rawLastActive: string;
 }
 
 const AVATAR_COLORS = [
@@ -122,6 +126,10 @@ export const activityService = {
                         productiveTime: '0h 0m',
                         idleTime: '0m',
                         avatarColor: getRandomColor(emp.id),
+                        todayTotalBreakMinutes: 0,
+                        currentBreakStart: null,
+                        rawLoginTime: '',
+                        rawLastActive: ''
                     };
                 }
 
@@ -168,6 +176,10 @@ export const activityService = {
                     productiveTime: formatDuration(productiveMinutes),
                     idleTime,
                     avatarColor: getRandomColor(emp.id),
+                    todayTotalBreakMinutes: activity.total_break_time || 0,
+                    currentBreakStart: activity.current_break_start,
+                    rawLoginTime: activity.login_time,
+                    rawLastActive: activity.last_active_time
                 };
             });
 
