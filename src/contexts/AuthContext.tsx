@@ -20,7 +20,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (username: string, password: string, role: string) => Promise<void>;
+  login: (username: string, password: string, role: string, tenantSlug?: string) => Promise<void>;
   logout: (reason?: string) => void;
   lastNotificationTime: number;
 }
@@ -180,7 +180,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [user?.tenantId, user?.id]);
 
-  const login = async (username: string, password: string, role: string) => {
+  const login = async (username: string, password: string, role: string, tenantSlug?: string) => {
     try {
       if (role === 'SuperAdmin') {
         const authenticatedUser = await loginSuperAdmin({ username, password });
@@ -202,11 +202,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (role === 'CompanyAdmin' || role === 'TeamIncharge' || role === 'Telecaller') {
-        const authenticatedUser = await loginCompanyAdmin({ username, password });
+        const authenticatedUser = await loginCompanyAdmin({ username, password }, tenantSlug);
+
+        // CRITICAL: Validate that selected role matches actual user role
+        const actualRole = authenticatedUser.role || 'CompanyAdmin';
+        if (role !== actualRole) {
+          throw new Error(`Invalid role selected. You are a ${actualRole}, not a ${role}.`);
+        }
+
         const userData = {
           id: authenticatedUser.id,
           name: authenticatedUser.name || authenticatedUser.username,
-          role: authenticatedUser.role || role,
+          role: actualRole, // Use actual role from database only
           tenantId: authenticatedUser.tenantId,
           email: authenticatedUser.email,
           empId: authenticatedUser.username,
@@ -223,7 +230,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           await securityAuditService.logLogin(
             authenticatedUser.id,
             authenticatedUser.tenantId,
-            authenticatedUser.role || role
+            actualRole
           );
         } else {
           console.warn('⚠️ No tenant ID found for user');

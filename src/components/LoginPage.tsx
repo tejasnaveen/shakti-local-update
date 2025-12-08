@@ -32,8 +32,8 @@ const LoginPage: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('tenants')
-          .select('id, name, status')
-          .eq('subdomain', subdomain)
+          .select('id, name, status, slug')
+          .eq('slug', subdomain)
           .single();
 
         if (error || !data) {
@@ -118,7 +118,7 @@ const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      await login(username, password, selectedRole);
+      await login(username, password, selectedRole, subdomain);
     } catch {
       setError('Invalid credentials');
     } finally {

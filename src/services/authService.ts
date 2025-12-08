@@ -54,10 +54,13 @@ export const loginSuperAdmin = async (credentials: LoginCredentials): Promise<Au
   };
 };
 
-export const loginCompanyAdmin = async (credentials: LoginCredentials): Promise<AuthenticatedUser> => {
+export const loginCompanyAdmin = async (credentials: LoginCredentials, tenantSlug?: string): Promise<AuthenticatedUser> => {
   const { username, password } = credentials;
 
   console.log('Attempting login with identifier:', username);
+  if (tenantSlug) {
+    console.log('Validating against tenant slug:', tenantSlug);
+  }
 
   const { data: adminData, error: adminError } = await supabase
     .from(COMPANY_ADMIN_TABLE)
@@ -78,6 +81,20 @@ export const loginCompanyAdmin = async (credentials: LoginCredentials): Promise<
 
     if (!isPasswordValid) {
       throw new Error('Invalid employee ID or password');
+    }
+
+    // Validate tenant slug if provided
+    if (tenantSlug) {
+      const { data: tenantData } = await supabase
+        .from('tenants')
+        .select('slug')
+        .eq('id', adminData.tenant_id)
+        .single();
+
+      if (!tenantData || tenantData.slug !== tenantSlug) {
+        console.error('Tenant mismatch: User belongs to different tenant');
+        throw new Error('You do not have access to this tenant');
+      }
     }
 
     return {
@@ -113,6 +130,20 @@ export const loginCompanyAdmin = async (credentials: LoginCredentials): Promise<
 
     if (!isPasswordValid) {
       throw new Error('Invalid employee ID or password');
+    }
+
+    // Validate tenant slug if provided
+    if (tenantSlug) {
+      const { data: tenantData } = await supabase
+        .from('tenants')
+        .select('slug')
+        .eq('id', employeeData.tenant_id)
+        .single();
+
+      if (!tenantData || tenantData.slug !== tenantSlug) {
+        console.error('Tenant mismatch: Employee belongs to different tenant');
+        throw new Error('You do not have access to this tenant');
+      }
     }
 
     // Track login activity

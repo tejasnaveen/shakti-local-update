@@ -337,13 +337,13 @@ export const employeeService = {
           continue;
         }
 
-        // Prepare employee data
+        // Prepare employee data (safely convert to strings first)
         const employeeData: CreateEmployeeRequest = {
-          name: data[i].Name.trim(),
-          mobile: data[i].Mobile.trim(),
-          empId: data[i]['EMP ID'].trim(),
+          name: String(data[i].Name || '').trim(),
+          mobile: String(data[i].Mobile || '').trim(),
+          empId: String(data[i]['EMP ID'] || '').trim(),
           password: Math.random().toString(36).slice(-8), // Generate random password
-          role: data[i].Role.trim() as 'Telecaller' | 'TeamIncharge',
+          role: String(data[i].Role || '').trim() as 'Telecaller' | 'TeamIncharge',
         };
 
         validEmployees.push(employeeData);
