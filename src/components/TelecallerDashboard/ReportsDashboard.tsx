@@ -159,24 +159,52 @@ export const ReportsDashboard: React.FC = () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const caseData: any = log.customer_cases || {};
 
-        // Helper to safely get nested values (case insensitive)
+        // Helper to safely get nested values (case insensitive checks)
         const getValue = (keys: string[]) => {
           for (const key of keys) {
+            // Check top level
             if (caseData[key] !== undefined && caseData[key] !== null && caseData[key] !== '') return caseData[key];
-            if (caseData.case_data && caseData.case_data[key] !== undefined) return caseData.case_data[key];
-            // Try uppercase version in case_data
-            if (caseData.case_data && caseData.case_data[key.toUpperCase()] !== undefined) return caseData.case_data[key.toUpperCase()];
+
+            // Check in case_data
+            if (caseData.case_data) {
+              if (caseData.case_data[key] !== undefined && caseData.case_data[key]) return caseData.case_data[key];
+              if (caseData.case_data[key.toLowerCase()] !== undefined && caseData.case_data[key.toLowerCase()]) return caseData.case_data[key.toLowerCase()];
+              if (caseData.case_data[key.toUpperCase()] !== undefined && caseData.case_data[key.toUpperCase()]) return caseData.case_data[key.toUpperCase()];
+            }
           }
           return 0; // Default to 0 for numbers
         };
 
         // Try to find Employment Type in various locations
-        let employmentType = caseData.loan_type || '';
-        if (caseData.custom_fields && caseData.custom_fields['Employment Type']) {
-          employmentType = caseData.custom_fields['Employment Type'];
-        } else if (caseData.case_data && caseData.case_data['EMPLOYMENT TYPE']) {
-          employmentType = caseData.case_data['EMPLOYMENT TYPE'];
+        let employmentType = '';
+        if (caseData.loan_type) employmentType = caseData.loan_type;
+
+        // Deep search for Employment Type
+        // User specifically mentioned 'employmentType'
+        const empKeys = ['Employment Type', 'EMPLOYMENT TYPE', 'employment_type', 'employmentType'];
+        for (const key of empKeys) {
+          if (caseData.custom_fields && caseData.custom_fields[key]) {
+            employmentType = caseData.custom_fields[key];
+            break;
+          }
+          if (caseData.case_data && caseData.case_data[key]) {
+            employmentType = caseData.case_data[key];
+            break;
+          }
         }
+
+        // Deep search for Outstanding Amount
+        // User specifically mentioned 'totalOutstanding'
+        const getOutstanding = () => {
+          const keys = ['outstanding_amount', 'total_outstanding', 'TOTAL OUTSTANDING', 'total_due', 'pending_dues', 'totalOutstanding'];
+          for (const key of keys) {
+            if (caseData[key]) return caseData[key];
+            if (caseData.case_data) {
+              if (caseData.case_data[key]) return caseData.case_data[key];
+            }
+          }
+          return 0;
+        };
 
         // Format dates helper
         const formatDate = (dateStr: string) => {
@@ -186,7 +214,7 @@ export const ReportsDashboard: React.FC = () => {
 
         // Create custom row with requested columns
         return {
-          'EMPID': user.empId || user.id,
+          'EMPID': `${user.name} (${user.empId || user.id})`, // Updated to show Name + ID
           'Customer Name': caseData.customer_name || '',
           'Loan ID': caseData.loan_id || '',
           'Mobile Number': caseData.mobile_no || '',
@@ -194,7 +222,7 @@ export const ReportsDashboard: React.FC = () => {
           'DPD': getValue(['dpd', 'DPD']),
           'POS': getValue(['pos_amount', 'pos', 'POS']),
           'EMI': getValue(['emi_amount', 'emi', 'EMI']),
-          'TOTAL OUTSTANDING': getValue(['outstanding_amount', 'total_outstanding', 'TOTAL OUTSTANDING']),
+          'TOTAL OUTSTANDING': getOutstanding(),
           'EMPLOYMENT TYPE': employmentType,
           'Payment Link': caseData.payment_link || '',
           'Loan Amount': caseData.loan_amount || 0,
@@ -202,7 +230,7 @@ export const ReportsDashboard: React.FC = () => {
           'Last Payment Amount': caseData.last_paid_amount || 0,
           'Loan Created At': formatDate(caseData.created_at),
           'Call Status': log.call_status || '',
-          'Status Remarks': log.call_notes || '', // Fixed: was log.remarks
+          'Status Remarks': log.call_notes || '',
           'PTP Date': log.ptp_date ? formatDate(log.ptp_date) : '',
           'Total Collected Amount': log.amount_collected || 0
         };
