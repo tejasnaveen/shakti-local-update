@@ -26,7 +26,7 @@ export const ReportsSection: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             onClick={scrollToMetrics}
             className="text-left p-4 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all group"
@@ -36,19 +36,6 @@ export const ReportsSection: React.FC = () => {
               <div>
                 <h4 className="font-medium text-gray-900 group-hover:text-blue-700">Team Performance Metrics</h4>
                 <p className="text-sm text-gray-600 mt-0.5">View team performance below</p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={() => openReportModal('payments')}
-            className="text-left p-4 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-all group"
-          >
-            <div className="flex items-start gap-3">
-              <DollarSign className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <h4 className="font-medium text-gray-900 group-hover:text-green-700">Collection Analytics</h4>
-                <p className="text-sm text-gray-600 mt-0.5">Payment and collection insights</p>
               </div>
             </div>
           </button>
