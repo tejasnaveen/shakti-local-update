@@ -159,29 +159,42 @@ export const ReportsDashboard: React.FC = () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const caseData: any = log.customer_cases || {};
 
-        // Create a base object with log details first
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const row: any = {
-          'Log Date': new Date(log.created_at).toLocaleString(),
-          'Call Status': log.call_status,
-          'Remarks': log.remarks,
-          'PTP Date': log.ptp_date ? new Date(log.ptp_date).toLocaleDateString() : '',
-          'Amount Collected': log.amount_collected || 0,
+        // Try to find Employment Type in various locations
+        let employmentType = caseData.loan_type || '';
+        if (caseData.custom_fields && caseData.custom_fields['Employment Type']) {
+          employmentType = caseData.custom_fields['Employment Type'];
+        } else if (caseData.case_data && caseData.case_data['EMPLOYMENT TYPE']) {
+          employmentType = caseData.case_data['EMPLOYMENT TYPE'];
+        }
+
+        // Format dates helper
+        const formatDate = (dateStr: string) => {
+          if (!dateStr) return '';
+          return new Date(dateStr).toLocaleDateString('en-IN');
         };
 
-        // Add all case columns
-        Object.keys(caseData).forEach(key => {
-          const val = caseData[key];
-          // Skip large objects or redundant fields if necessary, but user asked for "all columns"
-          // We stringify objects/arrays
-          if (val && typeof val === 'object' && !(val instanceof Date)) {
-            row[`Case_${key}`] = JSON.stringify(val);
-          } else {
-            row[`Case_${key}`] = val;
-          }
-        });
-
-        return row;
+        // Create custom row with requested columns
+        return {
+          'EMPID': user.empId || user.id,
+          'Customer Name': caseData.customer_name || '',
+          'Loan ID': caseData.loan_id || '',
+          'Mobile Number': caseData.mobile_no || '',
+          'Address': caseData.address || '',
+          'DPD': caseData.dpd || 0,
+          'POS': caseData.pos_amount || 0,
+          'EMI': caseData.emi_amount || 0,
+          'TOTAL OUTSTANDING': caseData.outstanding_amount || 0,
+          'EMPLOYMENT TYPE': employmentType,
+          'Payment Link': caseData.payment_link || '',
+          'Loan Amount': caseData.loan_amount || 0,
+          'Last Payment Date': formatDate(caseData.last_paid_date),
+          'Last Payment Amount': caseData.last_paid_amount || 0,
+          'Loan Created At': formatDate(caseData.created_at),
+          'Call Status': log.call_status || '',
+          'Status Remarks': log.remarks || '',
+          'PTP Date': log.ptp_date ? formatDate(log.ptp_date) : '',
+          'Total Collected Amount': log.amount_collected || 0
+        };
       });
 
       const ws = XLSX.utils.json_to_sheet(flattenedData);
