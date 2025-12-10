@@ -165,38 +165,84 @@ export const TeamMetricsReportModal: React.FC<TeamMetricsReportModalProps> = ({
         const exportData = reportData.map(item => {
             const row: any = {};
 
+            // Helper to safely get nested values (case insensitive checks)
+            const getValue = (keys: string[]) => {
+                for (const key of keys) {
+                    // Check top level
+                    if (item[key] !== undefined && item[key] !== null && item[key] !== '') return item[key];
+
+                    // Check in case_data
+                    if (item.case_data) {
+                        if (item.case_data[key] !== undefined && item.case_data[key]) return item.case_data[key];
+                        if (item.case_data[key.toLowerCase()] !== undefined && item.case_data[key.toLowerCase()]) return item.case_data[key.toLowerCase()];
+                        if (item.case_data[key.toUpperCase()] !== undefined && item.case_data[key.toUpperCase()]) return item.case_data[key.toUpperCase()];
+                    }
+                }
+                return 0; // Default to 0 for numbers
+            };
+
+            // Deep search for Employment Type
+            let employmentType = '';
+            if (item.loan_type) employmentType = item.loan_type;
+
+            const empKeys = ['Employment Type', 'EMPLOYMENT TYPE', 'employment_type', 'employmentType'];
+            for (const key of empKeys) {
+                if (item.custom_fields && item.custom_fields[key]) {
+                    employmentType = item.custom_fields[key];
+                    break;
+                }
+                if (item.case_data && item.case_data[key]) {
+                    employmentType = item.case_data[key];
+                    break;
+                }
+            }
+
+            // Deep search for Outstanding Amount
+            const getOutstanding = () => {
+                const keys = ['outstanding_amount', 'total_outstanding', 'TOTAL OUTSTANDING', 'total_due', 'pending_dues', 'totalOutstanding'];
+                for (const key of keys) {
+                    if (item[key]) return item[key];
+                    if (item.case_data) {
+                        if (item.case_data[key]) return item.case_data[key];
+                    }
+                }
+                return 0;
+            };
+
             // Explicitly order important columns first if desired, or just dump everything
             // Let's add standard headers first
             row['Loan ID'] = item.loan_id;
             row['Customer Name'] = item.customer_name;
             row['Mobile'] = item.mobile_no;
-            row['Telecaller'] = item.telecaller_name;
+            row['Telecaller'] = `${item.telecaller_name} (${item.telecaller_id})`; // Name (ID)
             row['Case Status'] = item.case_status;
             row['Last Call Status'] = item.latest_call_status;
             row['PTP Date'] = item.latest_ptp_date ? new Date(item.latest_ptp_date).toLocaleDateString('en-IN') : '';
             row['Last Call Date'] = item.latest_call_date ? new Date(item.latest_call_date).toLocaleDateString('en-IN') : '';
             row['Call Notes'] = item.latest_call_notes;
             row['Total Collected'] = item.amount_collected;
-            row['Outstanding'] = item.outstanding_amount;
+            row['Outstanding'] = getOutstanding();
+
+            // Standardize columns using helpers
+            row['DPD'] = getValue(['dpd', 'DPD']);
+            row['POS'] = getValue(['pos_amount', 'pos', 'POS']);
+            row['EMI'] = getValue(['emi_amount', 'emi', 'EMI']);
+            row['Employment Type'] = employmentType;
 
             // Add all other fields dynamically
             Object.keys(item).forEach(key => {
                 // Skip fields we already added or complex objects
                 if (['id', 'loan_id', 'customer_name', 'mobile_no', 'telecaller_name', 'case_status',
                     'latest_call_status', 'latest_ptp_date', 'latest_call_date', 'latest_call_notes',
-                    'amount_collected', 'outstanding_amount', 'status', 'telecaller_id', 'tenant_id'].includes(key)) {
+                    'amount_collected', 'outstanding_amount', 'status', 'telecaller_id', 'tenant_id',
+                    'dpd', 'pos_amount', 'emi_amount', 'case_data', 'custom_fields'].includes(key)) {
                     return;
                 }
 
                 const val = item[key];
                 if (val && typeof val === 'object' && !(val instanceof Date)) {
                     // try to look inside custom fields/case data for Employment Type if needed
-                    if (key === 'custom_fields' || key === 'case_data') {
-                        if (val['Employment Type'] || val['EMPLOYMENT TYPE']) {
-                            row['Employment Type'] = val['Employment Type'] || val['EMPLOYMENT TYPE'];
-                        }
-                        // row[key] = JSON.stringify(val); // Optional: JSON stringify complex objects
-                    }
+                    // Already handled above
                 } else {
                     row[key] = val;
                 }
