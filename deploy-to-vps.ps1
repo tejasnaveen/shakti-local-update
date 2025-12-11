@@ -16,7 +16,7 @@ Write-Host ""
 
 # Create the deployment command
 $deployCommand = @"
-cd /opt/shakti 2>/dev/null || cd ~/shakti-deply 2>/dev/null || cd ~/project 2>/dev/null || { echo 'Project directory not found'; exit 1; }
+cd /var/www/shakti 2>/dev/null || cd /opt/shakti 2>/dev/null || cd ~/shakti-deply 2>/dev/null || cd ~/project 2>/dev/null || { echo 'Project directory not found'; exit 1; }
 echo '📂 Project directory: ' `$(pwd)
 echo ''
 echo '⬇  Pulling latest changes...'
