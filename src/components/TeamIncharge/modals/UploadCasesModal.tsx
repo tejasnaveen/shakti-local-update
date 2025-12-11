@@ -247,10 +247,10 @@ export const UploadCasesModal: React.FC<UploadCasesModalProps> = ({
         return;
       }
 
-      if (excelData.length > 1000) {
+      if (excelData.length > 5000) {
         showNotification(notificationHelpers.error(
           'Too Many Rows',
-          'Maximum 1000 cases allowed per upload. Please split your file.'
+          'Maximum 5000 cases allowed per upload. Please split your file.'
         ));
         return;
       }

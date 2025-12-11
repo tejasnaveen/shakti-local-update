@@ -5,7 +5,7 @@ $VPS_IP = "72.60.97.250"
 $VPS_USER = "root"
 $PROJECT_DIR = "C:\Users\yanavi\Documents\project"
 
-Write-Host "🚀 Deploying Excel date fix to VPS..." -ForegroundColor Green
+Write-Host "🚀 Deploying updates to VPS..." -ForegroundColor Green
 Write-Host ""
 
 # Step 1: SSH into VPS and deploy
@@ -17,9 +17,9 @@ Write-Host ""
 # Create the deployment command
 $deployCommand = @"
 cd /opt/shakti 2>/dev/null || cd ~/shakti-deply 2>/dev/null || cd ~/project 2>/dev/null || { echo 'Project directory not found'; exit 1; }
-echo '📂 Project directory:' `$(pwd)
+echo '📂 Project directory: ' `$(pwd)
 echo ''
-echo '⬇️  Pulling latest changes...'
+echo '⬇  Pulling latest changes...'
 git pull origin main
 echo ''
 echo '🔨 Building application...'
@@ -38,9 +38,3 @@ ssh ${VPS_USER}@${VPS_IP} $deployCommand
 
 Write-Host ""
 Write-Host "✅ Deployment finished!" -ForegroundColor Green
-Write-Host ""
-Write-Host "🧪 Next steps:" -ForegroundColor Cyan
-Write-Host "   1. Open your Team Incharge dashboard"
-Write-Host "   2. Try uploading the Excel file that was failing"
-Write-Host "   3. All date errors should be fixed automatically"
-Write-Host ""
