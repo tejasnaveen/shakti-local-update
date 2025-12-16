@@ -20,7 +20,7 @@ import LandingPage from './pages/landing-page';
 import NotFound from './pages/errors/NotFound';
 
 // Providers
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, USER_STORAGE_KEY } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ConfirmationProvider } from './contexts/ConfirmationContext';
 
@@ -48,7 +48,7 @@ export default function App({ }: AppProps) {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const storedUser = localStorage.getItem('user');
+        const storedUser = sessionStorage.getItem(USER_STORAGE_KEY);
         if (storedUser) {
           setCurrentUser(JSON.parse(storedUser));
         }

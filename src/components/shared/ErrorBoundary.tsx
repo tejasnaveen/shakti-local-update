@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import { errorService } from '../../services/errorService';
 
 interface Props {
     children: ReactNode;
@@ -26,16 +27,8 @@ export class ErrorBoundary extends React.Component<Props, State> {
     }
 
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-        // Log to console
-        console.error('ErrorBoundary caught an error:', error);
-        console.error('Component stack:', errorInfo.componentStack);
-
-        // Send to Sentry if available
-        if (typeof window !== 'undefined' && (window as any).Sentry) {
-            (window as any).Sentry.captureException(error, {
-                contexts: { react: errorInfo },
-            });
-        }
+        // Use centralized error service
+        errorService.logError(error, { componentStack: errorInfo.componentStack || undefined });
 
         // Update state with error
         this.setState({
