@@ -40,6 +40,7 @@ import { AlertsDrawer } from './AlertsDrawer';
 import { AlertCase } from '../../services/alertService';
 import { TelecallerNotificationView } from './TelecallerNotificationView';
 import { BreakManager } from './BreakManager';
+import { PTPAlertSection } from '../shared/reports/PTPAlertSection';
 
 interface TelecallerDashboardProps {
   user: User;
@@ -162,6 +163,7 @@ export const TelecallerDashboard: React.FC<TelecallerDashboardProps> = ({ user, 
     { name: 'My Workboard', icon: Briefcase, active: activeSection === 'dashboard', onClick: () => setActiveSection('dashboard') },
     { name: 'Cases', icon: FileText, active: activeSection === 'cases', onClick: () => setActiveSection('cases') },
     { name: 'Reports', icon: BarChart3, active: activeSection === 'reports', onClick: () => setActiveSection('reports') },
+    { name: 'PTP Alert', icon: AlertCircle, active: activeSection === 'ptp-alerts', onClick: () => setActiveSection('ptp-alerts') },
     { name: 'Notifications', icon: Bell, active: activeSection === 'notifications', onClick: () => setActiveSection('notifications') },
     { name: 'Profile & Settings', icon: Settings, active: activeSection === 'profile', onClick: () => setActiveSection('profile') },
   ];
@@ -546,6 +548,8 @@ export const TelecallerDashboard: React.FC<TelecallerDashboardProps> = ({ user, 
                         caseStatus: c.case_status || '',
                         address: c.address || getValue(['address', 'Address']) || '',
                         email: c.email || getValue(['email', 'Email']) || '',
+                        latest_call_status: c.latest_call_status,
+                        latest_ptp_date: c.latest_ptp_date,
                         remarks: c.remarks || '',
                         total_collected_amount: c.total_collected_amount || 0,
                         // Include all fields from case_data for complete details
@@ -562,7 +566,8 @@ export const TelecallerDashboard: React.FC<TelecallerDashboardProps> = ({ user, 
                       { id: 4, columnName: 'dpd', displayName: 'DPD', isActive: true },
                       { id: 5, columnName: 'outstandingAmount', displayName: 'Outstanding', isActive: true },
                       { id: 6, columnName: 'emiAmount', displayName: 'EMI Amount', isActive: true },
-                      { id: 7, columnName: 'lastPaidDate', displayName: 'Last Paid', isActive: true }
+                      { id: 7, columnName: 'lastPaidDate', displayName: 'Last Paid', isActive: true },
+                      { id: 8, columnName: 'latestCallStatus', displayName: 'Call Response', isActive: true }
                     ]}
                     isLoading={isLoading}
                     tenantId={user.tenantId!}
@@ -596,6 +601,10 @@ export const TelecallerDashboard: React.FC<TelecallerDashboardProps> = ({ user, 
                   notifications={notifications}
                   setNotifications={setNotifications}
                 />
+              )}
+
+              {activeSection === 'ptp-alerts' && (
+                <PTPAlertSection user={user} />
               )}
 
               {activeSection === 'profile' && (

@@ -74,9 +74,9 @@ export const CaseManagement: React.FC = () => {
 
           totalCases += teamCases.length;
           unassignedCases += teamCases.filter(c => !c.telecaller_id).length;
-          assignedCases += teamCases.filter(c => c.status === 'assigned').length;
-          inProgressCases += teamCases.filter(c => c.status === 'in_progress').length;
-          closedCases += teamCases.filter(c => c.status === 'closed').length;
+          assignedCases += teamCases.filter(c => c.telecaller_id && c.case_status !== 'closed' && c.case_status !== 'resolved').length;
+          inProgressCases += teamCases.filter(c => c.case_status === 'in_progress').length;
+          closedCases += teamCases.filter(c => c.case_status === 'closed' || c.case_status === 'resolved').length;
         } catch (teamError) {
           console.error(`Error loading cases for team ${team.name}:`, teamError);
         }

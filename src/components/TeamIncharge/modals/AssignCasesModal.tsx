@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X } from 'lucide-react';
+import { X, User, DollarSign, MapPin, FileText, Calendar, AlertCircle, Eye } from 'lucide-react';
 import { customerCaseService } from '../../../services/customerCaseService';
 import { TeamService } from '../../../services/teamService';
 import { useNotification, notificationHelpers } from '../../shared/Notification';
@@ -26,13 +26,18 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
   const [teams, setTeams] = useState<Array<{ id: string; name: string; team_incharge_id: string; status: string; telecallers?: Array<{ id: string; name: string; emp_id: string }> }>>([]);
   const [telecallers, setTelecallers] = useState<Array<{ id: string; name: string; emp_id: string }>>([]);
   const [selectedTeam, setSelectedTeam] = useState('');
-  const [selectedTelecaller, setSelectedTelecaller] = useState('');
+  const [selectedTelecallerId, setSelectedTelecallerId] = useState('');
+  const [selectedTargetTeamId, setSelectedTargetTeamId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCases, setSelectedCases] = useState<Set<string>>(new Set());
 
 
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [actionType, setActionType] = useState<'assign' | 'unassign' | 'change_team' | 'view_only'>('assign');
+
+  // Case View State
+  const [selectedCaseForView, setSelectedCaseForView] = useState<TeamInchargeCase | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   // Load cases for a team
   const loadTeamCases = useCallback(async (teamId: string) => {
@@ -116,7 +121,8 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
 
   const handleTeamChange = async (teamId: string) => {
     setSelectedTeam(teamId);
-    setSelectedTelecaller('');
+    setSelectedTelecallerId('');
+    setSelectedTargetTeamId('');
     setSearchTerm('');
     setActionType('assign');
 
@@ -137,19 +143,27 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
   };
 
   const handleSelectAll = () => {
-    // Only select currently visible cases
-    const visibleCaseIds = applicableCases.map(c => c.id!);
-    const allSelected = visibleCaseIds.every(id => selectedCases.has(id));
+    // Only select currently visible cases (limit to 500 as per slicing)
+    const visibleCases = applicableCases.slice(0, 500);
+    const visibleCaseIds = visibleCases.map(c => c.id);
 
-    if (allSelected) {
-      setSelectedCases(new Set());
+    // Check if all visible cases are currently selected
+    const allVisibleSelected = visibleCaseIds.length > 0 && visibleCaseIds.every(id => selectedCases.has(id));
+
+    const newSelected = new Set(selectedCases);
+
+    if (allVisibleSelected) {
+      // Unselect all visible
+      visibleCaseIds.forEach(id => newSelected.delete(id));
     } else {
-      setSelectedCases(new Set(visibleCaseIds));
+      // Select all visible
+      visibleCaseIds.forEach(id => newSelected.add(id));
     }
+    setSelectedCases(newSelected);
   };
 
   const handleBulkAssignment = async () => {
-    if (actionType === 'assign' && (!selectedTelecaller || selectedCases.size === 0)) {
+    if (actionType === 'assign' && (!selectedTelecallerId || selectedCases.size === 0)) {
       showNotification(notificationHelpers.error('Missing Data', 'Please select a telecaller and at least one case'));
       return;
     }
@@ -157,7 +171,7 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
       showNotification(notificationHelpers.error('Missing Data', 'Please select at least one case to unassign'));
       return;
     }
-    if (actionType === 'change_team' && (!selectedTelecaller || selectedCases.size === 0)) {
+    if (actionType === 'change_team' && (!selectedTargetTeamId || selectedCases.size === 0)) {
       showNotification(notificationHelpers.error('Missing Data', 'Please select a new team and at least one case'));
       return;
     }
@@ -176,11 +190,11 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
         const caseId = selectedCaseIds[i];
         try {
           if (actionType === 'assign') {
-            await customerCaseService.assignCase(caseId, { caseId, telecallerId: selectedTelecaller, assignedBy: user!.id });
+            await customerCaseService.assignCase(caseId, { caseId, telecallerId: selectedTelecallerId, assignedBy: user!.id });
           } else if (actionType === 'unassign') {
             await customerCaseService.assignCase(caseId, { caseId, telecallerId: null, assignedBy: user!.id });
           } else if (actionType === 'change_team') {
-            await customerCaseService.updateCase(caseId, { team_id: selectedTelecaller });
+            await customerCaseService.updateCase(caseId, { team_id: selectedTargetTeamId });
           }
           successCount++;
         } catch {
@@ -222,6 +236,119 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const renderCaseDetails = () => {
+    if (!selectedCaseForView) return null;
+    const details = selectedCaseForView.case_data || {};
+
+    return (
+      <div className="fixed inset-y-0 right-0 w-full md:w-1/2 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-50 border-l border-gray-200 overflow-y-auto mt-16 sm:mt-0">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-6 border-b pb-4">
+            <h3 className="text-xl font-bold text-gray-900">Case Details</h3>
+            <button
+              onClick={() => setIsDetailsOpen(false)}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X className="w-6 h-6 text-gray-500" />
+            </button>
+          </div>
+
+          <div className="space-y-6">
+            {/* Basic Info */}
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Case ID</span>
+                  <p className="font-semibold text-gray-900">{String(selectedCaseForView.loan_id || details.loanId || selectedCaseForView.case_data.loan_id || 'N/A')}</p>
+                </div>
+                <div className="flex items-center">
+                  <span className="text-sm font-medium text-gray-500">Status:</span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ml-2 ${(selectedCaseForView.case_status === 'closed' || selectedCaseForView.case_status === 'resolved') ? 'bg-green-100 text-green-800' :
+                    selectedCaseForView.case_status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                    {selectedCaseForView.case_status?.replace('_', ' ') || 'New'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Product</span>
+                  <p className="font-medium text-gray-900">{selectedCaseForView.product_name}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-500">Date</span>
+                  <p className="text-sm text-gray-900">{formatDate(selectedCaseForView.created_at)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Customer Info */}
+            <div>
+              <h4 className="font-bold text-gray-900 mb-3 flex items-center">
+                <User className="w-4 h-4 mr-2" /> Customer Information
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div><span className="font-medium text-gray-600">Name:</span> <span className="ml-1">{String(selectedCaseForView.customer_name || details.customerName || details.customer_name || 'N/A')}</span></div>
+                <div><span className="font-medium text-gray-600">Mobile:</span> <span className="ml-1">{String(selectedCaseForView.mobile_no || details.mobileNo || details.mobile_no || 'N/A')}</span></div>
+                <div><span className="font-medium text-gray-600">Email:</span> <span className="ml-1">{String(selectedCaseForView.email || details.email || 'N/A')}</span></div>
+                <div><span className="font-medium text-gray-600">Alt Mobile:</span> <span className="ml-1">{String(selectedCaseForView.alternate_number || details.alternateNo || details.alternate_number || 'N/A')}</span></div>
+              </div>
+            </div>
+
+            {/* Financial Info */}
+            <div>
+              <h4 className="font-bold text-gray-900 mb-3 flex items-center">
+                <DollarSign className="w-4 h-4 mr-2" /> Financial Details
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-blue-50 p-4 rounded-lg">
+                <div><span className="font-medium text-gray-600">Loan Amount:</span> <span className="ml-1">{String(selectedCaseForView.loan_amount || details.loanAmount || details.loan_amount || 'N/A')}</span></div>
+                <div><span className="font-medium text-gray-600">Outstanding:</span> <span className="ml-1">{String(selectedCaseForView.outstanding_amount || details.outstandingAmount || details.outstanding_amount || 'N/A')}</span></div>
+                <div><span className="font-medium text-gray-600">EMI Amount:</span> <span className="ml-1">{String(selectedCaseForView.emi_amount || details.emiAmount || details.emi_amount || 'N/A')}</span></div>
+                <div><span className="font-medium text-gray-600">DPD:</span> <span className="ml-1">{String(selectedCaseForView.dpd || details.dpd || 'N/A')}</span></div>
+                <div><span className="font-medium text-gray-600">POS:</span> <span className="ml-1">{String(selectedCaseForView.pos_amount || details.pos || details.pos_amount || 'N/A')}</span></div>
+                <div><span className="font-medium text-gray-600">Paid Amount:</span> <span className="ml-1">{String(selectedCaseForView.last_paid_amount || details.lastPaidAmount || details.last_paid_amount || 'N/A')}</span></div>
+              </div>
+            </div>
+
+            {/* Location Info */}
+            <div>
+              <h4 className="font-bold text-gray-900 mb-3 flex items-center">
+                <MapPin className="w-4 h-4 mr-2" /> Location
+              </h4>
+              <div className="text-sm space-y-2">
+                <p><span className="font-medium text-gray-600">Address:</span> {String(selectedCaseForView.address || details.address || 'N/A')}</p>
+                <p><span className="font-medium text-gray-600">City/State:</span> {String(selectedCaseForView.city || details.city || 'N/A')}, {String(selectedCaseForView.state || details.state || 'N/A')} - {String(selectedCaseForView.pincode || details.pincode || 'N/A')}</p>
+              </div>
+            </div>
+
+            {/* System/Meta Info */}
+            <div>
+              <h4 className="font-bold text-gray-900 mb-3 flex items-center">
+                <FileText className="w-4 h-4 mr-2" /> System Info
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                <div>Created: {formatDate(selectedCaseForView.created_at)}</div>
+                <div>Last Updated: {formatDate(selectedCaseForView.updated_at)}</div>
+                <div>Telecaller: {selectedCaseForView.telecaller?.name || 'Unassigned'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const handleBulkDelete = async () => {
@@ -274,13 +401,16 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
     setTeams([]);
     setTelecallers([]);
     setSelectedTeam('');
-    setSelectedTelecaller('');
+    setSelectedTelecallerId('');
+    setSelectedTargetTeamId('');
     setSearchTerm('');
     setSelectedCases(new Set());
 
 
     setShowBulkDeleteConfirm(false);
     setActionType('assign');
+    setSelectedCaseForView(null);
+    setIsDetailsOpen(false);
   };
 
   const handleClose = () => {
@@ -296,8 +426,11 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
     } else if (actionType === 'unassign') {
       result = filteredCases.filter(case_ => case_.telecaller_id);
     } else if (actionType === 'view_only') {
-      if (selectedTelecaller) {
-        result = filteredCases.filter(case_ => case_.telecaller_id === selectedTelecaller);
+      if (selectedTelecallerId) {
+        result = filteredCases.filter(case_ => case_.telecaller_id === selectedTelecallerId);
+      } else {
+        // If no telecaller selected in view_only, showing all cases for the team is fine
+        requestAnimationFrame(() => { }); // no-op
       }
     }
     return result;
@@ -339,7 +472,8 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
               value={actionType}
               onChange={(e) => {
                 setActionType(e.target.value as 'assign' | 'unassign' | 'change_team' | 'view_only');
-                setSelectedTelecaller('');
+                setSelectedTelecallerId('');
+                setSelectedTargetTeamId('');
                 setSelectedCases(new Set());
               }}
               className="border p-2 rounded bg-white shadow-sm focus:ring-2 focus:ring-blue-500"
@@ -350,31 +484,42 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
               <option value="view_only">View / Delete (Incharge)</option>
             </select>
 
-            <input
-              type="text"
-              placeholder="Search customers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="border p-2 rounded bg-white shadow-sm focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="flex flex-col">
+              <input
+                type="text"
+                placeholder="Search customers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="border p-2 rounded bg-white shadow-sm focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-xs text-gray-500 mt-1 ml-1">Changing filters clears current selections</span>
+            </div>
 
-            <select
-              value={selectedTelecaller}
-              onChange={(e) => setSelectedTelecaller(e.target.value)}
-              className="border p-2 rounded bg-white shadow-sm focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">
-                {actionType === 'assign' || actionType === 'change_team' ? 'Select Target Telecaller/Team' : 'Filter by Telecaller'}
-              </option>
-              {actionType === 'change_team'
-                ? teams.filter(t => t.id !== selectedTeam).map(t => (
+            {actionType === 'change_team' ? (
+              <select
+                value={selectedTargetTeamId}
+                onChange={(e) => setSelectedTargetTeamId(e.target.value)}
+                className="border p-2 rounded bg-white shadow-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select Target Team</option>
+                {teams.filter(t => t.id !== selectedTeam).map(t => (
                   <option key={t.id} value={t.id}>{t.name}</option>
-                ))
-                : telecallers.map(t => (
+                ))}
+              </select>
+            ) : (
+              <select
+                value={selectedTelecallerId}
+                onChange={(e) => setSelectedTelecallerId(e.target.value)}
+                className="border p-2 rounded bg-white shadow-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">
+                  {actionType === 'view_only' ? 'Filter by Telecaller' : 'Select Target Telecaller'}
+                </option>
+                {telecallers.map(t => (
                   <option key={t.id} value={t.id}>{t.name}</option>
-                ))
-              }
-            </select>
+                ))}
+              </select>
+            )}
           </div>
 
           <div className="flex justify-between items-center pt-2">
@@ -384,9 +529,13 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
             </div>
 
             <div className="space-x-2">
-              {actionType === 'view_only' && selectedTelecaller && applicableCases.length > 0 && (
+              {actionType === 'view_only' && selectedTelecallerId && applicableCases.length > 0 && (
                 <button
-                  onClick={() => setShowBulkDeleteConfirm(true)}
+                  onClick={() => {
+                    // Auto-select all applicable cases for bulk delete
+                    setSelectedCases(new Set(applicableCases.map(c => c.id)));
+                    setShowBulkDeleteConfirm(true);
+                  }}
                   className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium shadow-sm transition-colors"
                 >
                   Delete All {applicableCases.length} Cases
@@ -432,7 +581,10 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
                     <input
                       type="checkbox"
                       onChange={handleSelectAll}
-                      checked={applicableCases.length > 0 && selectedCases.size === applicableCases.length}
+                      checked={
+                        applicableCases.length > 0 &&
+                        applicableCases.slice(0, 500).every(c => selectedCases.has(c.id))
+                      }
                     />
                   </th>
                   <th className="p-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Details</th>
@@ -445,12 +597,12 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
                 {applicableCases.slice(0, 500).map((case_) => {
                   const details = case_.case_data || {};
                   return (
-                    <tr key={case_.id} className={`hover:bg-blue-50 transition-colors ${selectedCases.has(case_.id!) ? 'bg-blue-50' : ''}`}>
+                    <tr key={case_.id} className={`hover:bg-blue-50 transition-colors ${selectedCases.has(case_.id) ? 'bg-blue-50' : ''}`}>
                       <td className="p-3 text-center">
                         <input
                           type="checkbox"
-                          checked={selectedCases.has(case_.id!)}
-                          onChange={() => handleCaseSelect(case_.id!)}
+                          checked={selectedCases.has(case_.id)}
+                          onChange={() => handleCaseSelect(case_.id)}
                         />
                       </td>
                       <td className="p-3">
@@ -468,17 +620,26 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
                         )}
                       </td>
                       <td className="p-3 text-sm">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${case_.status === 'closed' ? 'bg-green-100 text-green-800' :
-                          case_.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                            case_.status === 'assigned' ? 'bg-purple-100 text-purple-800' :
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${(case_.case_status === 'closed' || case_.case_status === 'resolved') ? 'bg-green-100 text-green-800' :
+                          case_.case_status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                            case_.telecaller_id ? 'bg-purple-100 text-purple-800' :
                               'bg-gray-100 text-gray-800'
                           }`}>
-                          {case_.status?.replace('_', ' ') || 'new'}
+                          {case_.case_status?.replace('_', ' ') || (case_.telecaller_id ? 'assigned' : 'new')}
                         </span>
                       </td>
                       <td className="p-3 text-sm">
                         <button
-                          onClick={() => handleDeleteCase(case_.id!)}
+                          onClick={() => {
+                            setSelectedCaseForView(case_);
+                            setIsDetailsOpen(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-900 text-xs font-medium border border-blue-200 px-3 py-1 rounded hover:bg-blue-50 transition-colors mr-2"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCase(case_.id)}
                           className="text-red-600 hover:text-red-900 text-xs font-medium border border-red-200 px-3 py-1 rounded hover:bg-red-50 transition-colors"
                         >
                           Delete
@@ -502,6 +663,21 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+
+
+      {/* Detail View Slide-over */}
+      {
+        isDetailsOpen && (
+          <div className="fixed inset-0 z-50 flex justify-end">
+            {/* Backdrop for the details view */}
+            <div
+              className="absolute inset-0 bg-black bg-opacity-30 backdrop-blur-sm transition-opacity"
+              onClick={() => setIsDetailsOpen(false)}
+            />
+            {renderCaseDetails()}
+          </div>
+        )
+      }
+    </div >
   );
 };

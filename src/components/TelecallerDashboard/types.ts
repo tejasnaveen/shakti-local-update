@@ -49,6 +49,8 @@ export interface CustomerCase {
   branchName: string;
   loanType: string;
   remarks: string;
+  latest_call_status?: string;
+  latest_ptp_date?: string;
   caseStatus?: string;
   total_collected_amount?: number;
   custom_fields?: Record<string, unknown>;

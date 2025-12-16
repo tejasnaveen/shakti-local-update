@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ReportPieChart } from '../shared/ReportPieChart';
 import { formatIndianCurrency } from '../../utils/dateUtils';
 import { DataDebugModal } from './DataDebugModal';
+import { TelecallerCaseExplorerModal } from './modals/TelecallerCaseExplorerModal';
 
 interface TeamData {
   id: string;
@@ -42,6 +43,7 @@ export const TeamPerformanceMetrics: React.FC = () => {
     monthlyTarget: number;
     achievement: number;
   } | null>(null);
+  const [showCaseExplorer, setShowCaseExplorer] = useState(false);
   const { user } = useAuth();
 
   const loadTeamData = useCallback(async () => {
@@ -99,22 +101,41 @@ export const TeamPerformanceMetrics: React.FC = () => {
           const telecallerIds = teamEmployees?.map(emp => emp.id) || [];
           console.log(`Telecaller IDs for ${team.name}:`, telecallerIds);
 
-          // Fetch cases for this team
-          let casesQuery = supabase
-            .from('customer_cases')
-            .select('id, case_status, telecaller_id')
-            .eq('team_id', team.id);
+          // Fetch cases for this team in batches
+          let teamCases: any[] = [];
+          let casesPage = 0;
+          let casesHasMore = true;
 
-          // Only filter by telecaller_id if we have telecallers
-          if (telecallerIds.length > 0) {
-            casesQuery = casesQuery.in('telecaller_id', telecallerIds);
+          while (casesHasMore) {
+            let casesQuery = supabase
+              .from('customer_cases')
+              .select('id, case_status, telecaller_id')
+              .eq('team_id', team.id);
+
+            // Only filter by telecaller_id if we have telecallers
+            if (telecallerIds.length > 0) {
+              casesQuery = casesQuery.in('telecaller_id', telecallerIds);
+            }
+
+            const { data: casesBatch, error: casesError } = await casesQuery.range(casesPage * 1000, (casesPage + 1) * 1000 - 1);
+
+            if (casesError) {
+              console.error('Error fetching cases for team:', team.id, casesError);
+              break; // Stop fetching on error
+            }
+
+            if (casesBatch) {
+              teamCases = [...teamCases, ...casesBatch];
+              if (casesBatch.length < 1000) {
+                casesHasMore = false;
+              }
+              casesPage++;
+            } else {
+              casesHasMore = false;
+            }
           }
 
-          const { data: teamCases, error: casesError } = await casesQuery;
 
-          if (casesError) {
-            console.error('Error fetching cases for team:', team.id, casesError);
-          }
 
           console.log(`Cases for ${team.name}:`, teamCases?.length || 0, teamCases);
 
@@ -129,16 +150,33 @@ export const TeamPerformanceMetrics: React.FC = () => {
 
           if (telecallerIds.length > 0) {
             // Method 1: Fetch by employee_id (most common)
-            const { data: callLogs, error: callLogsError } = await supabase
-              .from('case_call_logs')
-              .select('id, amount_collected, employee_id')
-              .in('employee_id', telecallerIds);
+            let allCallLogs: any[] = [];
+            let logsPage = 0;
+            let logsHasMore = true;
 
-            if (callLogsError) {
-              console.error(`Error fetching call logs for ${team.name}:`, callLogsError);
-            } else {
-              callLogsData = callLogs;
+            while (logsHasMore) {
+              const { data: callLogs, error: callLogsError } = await supabase
+                .from('case_call_logs')
+                .select('id, amount_collected, employee_id')
+                .in('employee_id', telecallerIds)
+                .range(logsPage * 1000, (logsPage + 1) * 1000 - 1);
+
+              if (callLogsError) {
+                console.error(`Error fetching call logs for ${team.name}:`, callLogsError);
+                break;
+              }
+
+              if (callLogs) {
+                allCallLogs = [...allCallLogs, ...callLogs];
+                if (callLogs.length < 1000) {
+                  logsHasMore = false;
+                }
+                logsPage++;
+              } else {
+                logsHasMore = false;
+              }
             }
+            callLogsData = allCallLogs;
           }
 
           const totalCalls = callLogsData?.length || 0;
@@ -244,17 +282,57 @@ export const TeamPerformanceMetrics: React.FC = () => {
 
       setIsLoading(true);
       try {
-        // Fetch Cases
-        const { data: cases } = await supabase
-          .from('customer_cases')
-          .select('*')
-          .eq('telecaller_id', selectedTelecallerId);
+        // Fetch Cases in batches
+        let cases: any[] = [];
+        let cPage = 0;
+        let cHasMore = true;
 
-        // Fetch Call Logs
-        const { data: logs } = await supabase
-          .from('case_call_logs')
-          .select('*')
-          .eq('employee_id', selectedTelecallerId);
+        while (cHasMore) {
+          const { data: batch, error } = await supabase
+            .from('customer_cases')
+            .select('*')
+            .eq('telecaller_id', selectedTelecallerId)
+            .range(cPage * 1000, (cPage + 1) * 1000 - 1);
+
+          if (error) {
+            console.error('Error fetching telecaller cases:', error);
+            break;
+          }
+
+          if (batch) {
+            cases = [...cases, ...batch];
+            if (batch.length < 1000) cHasMore = false;
+            cPage++;
+          } else {
+            cHasMore = false;
+          }
+        }
+
+        // Fetch Call Logs in batches
+        let logs: any[] = [];
+        let lPage = 0;
+        let lHasMore = true;
+
+        while (lHasMore) {
+          const { data: batch, error } = await supabase
+            .from('case_call_logs')
+            .select('*')
+            .eq('employee_id', selectedTelecallerId)
+            .range(lPage * 1000, (lPage + 1) * 1000 - 1);
+
+          if (error) {
+            console.error('Error fetching telecaller logs:', error);
+            break;
+          }
+
+          if (batch) {
+            logs = [...logs, ...batch];
+            if (batch.length < 1000) lHasMore = false;
+            lPage++;
+          } else {
+            lHasMore = false;
+          }
+        }
 
         // Fetch Target
         const { data: target } = await supabase
@@ -472,7 +550,10 @@ export const TeamPerformanceMetrics: React.FC = () => {
             </div>
 
             {/* Cases Card */}
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
+            <div
+              className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200 cursor-pointer hover:shadow-md transition-all active:scale-[0.98]"
+              onClick={() => setShowCaseExplorer(true)}
+            >
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-purple-600 rounded-lg">
                   <Target className="w-6 h-6 text-white" />
@@ -843,6 +924,17 @@ export const TeamPerformanceMetrics: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {/* Telecaller Case Explorer Modal */}
+      {user?.tenantId && (
+        <TelecallerCaseExplorerModal
+          isOpen={showCaseExplorer}
+          onClose={() => setShowCaseExplorer(false)}
+          tenantId={user.tenantId}
+          initialTeamId={selectedTeamId === 'all' ? '' : selectedTeamId}
+          initialTelecallerId={selectedTelecallerId === 'all' ? '' : selectedTelecallerId}
+        />
+      )}
 
       {/* Debug Modal */}
       <DataDebugModal

@@ -29,9 +29,11 @@ import {
   Settings,
   Activity,
   Bell,
-  Clock
+  Clock,
+  AlertCircle
 } from 'lucide-react';
 import { NotificationManager } from './sections/NotificationManager';
+import { PTPAlertSection } from '../shared/reports/PTPAlertSection';
 import { useToast } from '../TelecallerDashboard/hooks';
 import ToastContainer from '../TelecallerDashboard/ToastContainer';
 
@@ -204,6 +206,7 @@ export const CompanyAdminDashboard: React.FC<CompanyAdminDashboardProps> = ({ us
     { name: 'Notification Manager', icon: Bell, active: activeSection === 'notifications', onClick: () => setActiveSection('notifications') },
     { name: 'Column Management', icon: Settings, active: activeSection === 'columns', onClick: () => setActiveSection('columns') },
     { name: 'Reports Dashboard', icon: FileText, active: activeSection === 'reports', onClick: () => setActiveSection('reports') },
+    { name: 'PTP Alert', icon: AlertCircle, active: activeSection === 'ptp-alerts', onClick: () => setActiveSection('ptp-alerts') },
     { name: 'Settings', icon: Settings, active: activeSection === 'company', onClick: () => setActiveSection('company') },
   ];
 
@@ -248,6 +251,8 @@ export const CompanyAdminDashboard: React.FC<CompanyAdminDashboardProps> = ({ us
         return <OfficeTimingSettings />;
       case 'notifications':
         return <NotificationManager />;
+      case 'ptp-alerts':
+        return <PTPAlertSection user={user} />;
       case 'columns':
         return <ColumnConfiguration user={user} />;
       default:

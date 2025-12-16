@@ -160,6 +160,35 @@ const CustomerCaseTable: React.FC<CustomerCaseTableProps> = ({
             Copy Link
           </button>
         );
+      case 'latestCallStatus':
+        const status = case_.latest_call_status || '-';
+        let statusColor = 'bg-gray-100 text-gray-800'; // default
+
+        switch (status.toUpperCase()) {
+          case 'CONNECTED':
+          case 'PTP':
+            statusColor = 'bg-green-100 text-green-800';
+            break;
+          case 'RNR':
+          case 'NOT RECHABLE':
+          case 'SWITCH OFF':
+            statusColor = 'bg-red-100 text-red-800';
+            break;
+          case 'BUSY':
+          case 'CALLBACK':
+            statusColor = 'bg-yellow-100 text-yellow-800';
+            break;
+          case 'WRONG NUMBER':
+          case 'DISCONNECTED':
+            statusColor = 'bg-gray-200 text-gray-600';
+            break;
+        }
+
+        return (
+          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusColor}`}>
+            {status}
+          </span>
+        );
       case 'actions':
         return (
           <div className="flex space-x-2">

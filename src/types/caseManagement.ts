@@ -7,17 +7,43 @@ export interface TeamInchargeCase {
   telecaller_id?: string;
   product_name: string;
   case_data: Record<string, unknown>;
-  status: 'new' | 'assigned' | 'in_progress' | 'closed';
+  case_status?: string;
+  latest_call_status?: string;
+  latest_ptp_date?: string;
+  status?: 'new' | 'assigned' | 'in_progress' | 'closed';
   uploaded_by: string;
   assigned_by?: string;
   created_at: string;
   updated_at: string;
-  // Additional computed fields
   telecaller?: {
     id: string;
     name: string;
     emp_id: string;
   };
+  // Flattened fields from DB
+  loan_id?: string;
+  customer_name?: string;
+  mobile_no?: string;
+  alternate_number?: string;
+  email?: string;
+  loan_amount?: string;
+  outstanding_amount?: string;
+  pos_amount?: string;
+  emi_amount?: string;
+  dpd?: number;
+  last_paid_amount?: string;
+  last_paid_date?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  branch_name?: string;
+  priority?: string;
+  sanction_date?: string;
+  payment_link?: string;
+  remarks?: string;
+  loan_type?: string;
+  pending_dues?: string;
 }
 
 export interface CaseUploadResult {

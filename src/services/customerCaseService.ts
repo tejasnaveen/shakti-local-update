@@ -45,6 +45,8 @@ export interface CustomerCase {
   total_collected_amount?: number;
   created_at?: string;
   updated_at?: string;
+  latest_call_status?: string;
+  latest_ptp_date?: string;
 }
 
 export interface CallLog {
@@ -140,7 +142,13 @@ export const customerCaseService = {
       // First try to get cases by telecaller_id (UUID)
       const { data: casesByTelecallerId, error: telecallerError } = await supabase
         .from(CUSTOMER_CASE_TABLE)
-        .select('*')
+        .select(`
+          *,
+          case_call_logs (
+            call_status,
+            created_at
+          )
+        `)
         .eq('tenant_id', tenantId)
         .eq('telecaller_id', employee.id)
         .order('created_at', { ascending: false });
@@ -167,11 +175,37 @@ export const customerCaseService = {
         }
 
         console.log('📊 Cases found by assigned_employee_id:', casesByEmpId?.length || 0);
+
+        // Process cases to add latest_call_status if needed (but currently we want to use the main query result)
+        // Note: The fallback query above also needs the join if we really want to support fallback fully with status
+        // For now, let's assume the main query via telecaller_id is the primary path.
+        // If we want fallback to work with status, we should update that query too.
+
         return casesByEmpId || [];
       }
 
       console.log('✅ Returning', casesByTelecallerId.length, 'cases for telecaller', employee.name);
-      return casesByTelecallerId || [];
+
+      // Process cases to extract latest_call_status from logs
+      const enrichedCases = casesByTelecallerId.map((caseItem: any) => {
+        const logs = caseItem.case_call_logs || [];
+        // Sort logs by created_at desc if not already
+        logs.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        const latestCallStatus = logs.length > 0 ? logs[0].call_status : undefined;
+
+        // Remove logs from main object to keep it clean if desired, or keep them
+        const { case_call_logs, ...rest } = caseItem;
+
+        return {
+          ...rest,
+          latest_call_status: latestCallStatus,
+          // We can also extract latest_call_date if needed
+          latest_call_date: logs.length > 0 ? logs[0].created_at : undefined
+        };
+      });
+
+      return enrichedCases;
     } catch (error) {
       console.error('Unexpected error in getCasesByTelecaller:', error);
       return [];
@@ -346,17 +380,45 @@ export const customerCaseService = {
   async getTeamCases(tenantId: string, teamId: string): Promise<TeamInchargeCase[]> {
     try {
       // First get all cases for the team
-      const { data: cases, error: casesError } = await supabase
-        .from(CUSTOMER_CASE_TABLE)
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .eq('team_id', teamId)
-        .order('created_at', { ascending: false });
+      // First get all cases for the team with pagination
+      let allCases: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
 
-      if (casesError) {
-        console.error('Error fetching team cases:', casesError);
-        throw new Error('Failed to fetch team cases');
+      while (hasMore) {
+        const { data: cases, error: casesError } = await supabase
+          .from(CUSTOMER_CASE_TABLE)
+          .select(`
+            *,
+            case_call_logs (
+              call_status,
+              ptp_date,
+              created_at
+            )
+          `)
+          .eq('tenant_id', tenantId)
+          .eq('team_id', teamId)
+          .order('created_at', { ascending: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (casesError) {
+          console.error('Error fetching team cases:', casesError);
+          throw new Error('Failed to fetch team cases');
+        }
+
+        if (cases) {
+          allCases = [...allCases, ...cases];
+          if (cases.length < pageSize) {
+            hasMore = false;
+          }
+          page++;
+        } else {
+          hasMore = false;
+        }
       }
+
+      const cases = allCases;
 
       if (!cases || cases.length === 0) {
         return [];
@@ -365,35 +427,58 @@ export const customerCaseService = {
       // Get unique telecaller IDs
       const telecallerIds = [...new Set(cases.filter(c => c.telecaller_id).map(c => c.telecaller_id))];
 
-      // If no telecallers, return cases as is
-      if (telecallerIds.length === 0) {
-        return cases as TeamInchargeCase[];
+      let telecallerMap = new Map();
+      if (telecallerIds.length > 0) {
+        // Fetch telecaller details
+        const { data: telecallers, error: telecallersError } = await supabase
+          .from('employees')
+          .select('id, name, emp_id')
+          .eq('tenant_id', tenantId)
+          .in('id', telecallerIds);
+
+        if (!telecallersError && telecallers) {
+          telecallerMap = new Map(telecallers.map(t => [t.id, t]));
+        }
       }
 
-      // Fetch telecaller details
-      const { data: telecallers, error: telecallersError } = await supabase
-        .from('employees')
-        .select('id, name, emp_id')
-        .eq('tenant_id', tenantId)
-        .in('id', telecallerIds);
+      // Merge telecaller details and process call logs
+      const processedCases = cases.map(caseItem => {
+        // Extract latest call status
+        let latestCallStatus = undefined;
+        if (caseItem.case_call_logs && Array.isArray(caseItem.case_call_logs) && caseItem.case_call_logs.length > 0) {
+          // Sort by created_at desc to be safe, though usage of .limit(1).order(...) in query would be better if allowed here
+          // Since we didn't force order in sub-select (PostgREST limitations sometimes), sort here
+          const sortedLogs = [...caseItem.case_call_logs].sort((a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+          latestCallStatus = sortedLogs[0].call_status;
+        }
 
-      if (telecallersError) {
-        console.error('Error fetching telecallers:', telecallersError);
-        return cases as TeamInchargeCase[];
-      }
+        // Clean up the case object to remove the raw logs array if we don't want it heavily in memory
+        const { case_call_logs, ...rest } = caseItem;
 
-      // Create a map of telecaller details
-      const telecallerMap = new Map(
-        telecallers?.map(t => [t.id, t]) || []
-      );
+        // Find latest PTP Date
+        let latestPtpDate = undefined;
+        if (caseItem.case_call_logs && Array.isArray(caseItem.case_call_logs)) {
+          // Find logs with PTP date
+          const ptpLogs = caseItem.case_call_logs
+            .filter((log: any) => log.ptp_date)
+            .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-      // Merge telecaller details with cases
-      const casesWithTelecallers = cases.map(caseItem => ({
-        ...caseItem,
-        telecaller: caseItem.telecaller_id ? telecallerMap.get(caseItem.telecaller_id) : null
-      }));
+          if (ptpLogs.length > 0) {
+            latestPtpDate = ptpLogs[0].ptp_date;
+          }
+        }
 
-      return casesWithTelecallers as TeamInchargeCase[];
+        return {
+          ...rest,
+          latest_call_status: latestCallStatus,
+          latest_ptp_date: latestPtpDate,
+          telecaller: caseItem.telecaller_id ? telecallerMap.get(caseItem.telecaller_id) : null
+        };
+      });
+
+      return processedCases as TeamInchargeCase[];
     } catch (error) {
       console.error('Error in getTeamCases:', error);
       throw error;
@@ -401,20 +486,38 @@ export const customerCaseService = {
   },
 
   async getUnassignedTeamCases(tenantId: string, teamId: string): Promise<TeamInchargeCase[]> {
-    const { data, error } = await supabase
-      .from(CUSTOMER_CASE_TABLE)
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .eq('team_id', teamId)
-      .is('telecaller_id', null)
-      .order('created_at', { ascending: false });
+    let allCases: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
 
-    if (error) {
-      console.error('Error fetching unassigned cases:', error);
-      throw new Error('Failed to fetch unassigned cases');
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from(CUSTOMER_CASE_TABLE)
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('team_id', teamId)
+        .is('telecaller_id', null)
+        .order('created_at', { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (error) {
+        console.error('Error fetching unassigned cases:', error);
+        throw new Error('Failed to fetch unassigned cases');
+      }
+
+      if (data) {
+        allCases = [...allCases, ...data];
+        if (data.length < pageSize) {
+          hasMore = false;
+        }
+        page++;
+      } else {
+        hasMore = false;
+      }
     }
 
-    return data || [];
+    return allCases;
   },
 
   async getCasesByFilters(tenantId: string, teamId: string, filters: CaseFilters): Promise<TeamInchargeCase[]> {
@@ -454,15 +557,17 @@ export const customerCaseService = {
       query = query.lte('created_at', filters.dateTo + 'T23:59:59.999Z');
     }
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    const { data: allData, error: fetchError } = await query
+      .order('created_at', { ascending: false })
+      .range(0, 4999); // Increase limit to 5000 to cover most filtered views
 
-    if (error) {
-      console.error('Error fetching filtered cases:', error);
+    if (fetchError) {
+      console.error('Error fetching filtered cases:', fetchError);
       throw new Error('Failed to fetch filtered cases');
     }
 
-    console.log(`Found ${data?.length || 0} cases with filters`);
-    return data || [];
+    console.log(`Found ${allData?.length || 0} cases with filters`);
+    return allData || [];
   },
 
   async createBulkCases(cases: Omit<CustomerCase, 'id' | 'created_at' | 'updated_at'>[]): Promise<CaseUploadResult> {
@@ -1104,6 +1209,71 @@ export const customerCaseService = {
     } catch (error) {
       console.error('Error in getViewedCaseIds:', error);
       return new Set();
+    }
+  },
+
+  async getTodayPTPCases(tenantId: string, employeeId?: string): Promise<TeamInchargeCase[]> {
+    try {
+      console.log('🔍 getTodayPTPCases called', { tenantId, employeeId });
+
+      const today = new Date().toISOString().split('T')[0];
+
+      // 1. Find call logs with PTP date = today
+      let query = supabase
+        .from(CASE_CALL_LOG_TABLE)
+        .select('case_id, created_at')
+        .eq('tenant_id', tenantId)
+        .eq('ptp_date', today);
+
+      if (employeeId) {
+        query = query.eq('employee_id', employeeId);
+      }
+
+      const { data: logs, error: logsError } = await query;
+
+      if (logsError) {
+        console.error('Error fetching PTP logs:', logsError);
+        return [];
+      }
+
+      if (!logs || logs.length === 0) {
+        console.log('No PTPs found for today');
+        return [];
+      }
+
+      // Get unique case IDs
+      const caseIds = [...new Set(logs.map(log => log.case_id))];
+
+      if (caseIds.length === 0) return [];
+
+      // 2. Fetch full case details for these IDs
+      const { data: cases, error: casesError } = await supabase
+        .from(CUSTOMER_CASE_TABLE)
+        .select(`
+          *,
+          telecaller:employees!telecaller_id(
+            id,
+            name,
+            emp_id
+          )
+        `)
+        .eq('tenant_id', tenantId)
+        .in('id', caseIds)
+        .order('created_at', { ascending: false });
+
+      if (casesError) {
+        console.error('Error fetching PTP cases:', casesError);
+        return [];
+      }
+
+      return (cases || []).map(c => ({
+        ...c,
+        latest_ptp_date: today
+      })) as TeamInchargeCase[];
+
+    } catch (error) {
+      console.error('Unexpected error in getTodayPTPCases:', error);
+      return [];
     }
   }
 };

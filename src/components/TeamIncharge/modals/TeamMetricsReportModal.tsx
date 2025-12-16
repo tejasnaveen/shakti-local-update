@@ -93,18 +93,36 @@ export const TeamMetricsReportModal: React.FC<TeamMetricsReportModalProps> = ({
                 fileNamePrefix = 'Monthly';
             }
 
-            // Fetch logs for activity report
-            const { data: logs, error } = await supabase
-                .from('case_call_logs')
-                .select(`
-                  *,
-                  customer_cases (*)
-                `)
-                .eq('employee_id', selectedTelecallerId)
-                .gte('created_at', startDate.toISOString())
-                .order('created_at', { ascending: false });
+            // Fetch logs for activity report in batches
+            let allLogs: any[] = [];
+            let page = 0;
+            const pageSize = 1000;
+            let hasMore = true;
 
-            if (error) throw error;
+            while (hasMore) {
+                const { data: logs, error } = await supabase
+                    .from('case_call_logs')
+                    .select(`
+                      *,
+                      customer_cases (*)
+                    `)
+                    .eq('employee_id', selectedTelecallerId)
+                    .gte('created_at', startDate.toISOString())
+                    .order('created_at', { ascending: false })
+                    .range(page * pageSize, (page + 1) * pageSize - 1);
+
+                if (error) throw error;
+
+                if (logs) {
+                    allLogs = [...allLogs, ...logs];
+                    if (logs.length < pageSize) hasMore = false;
+                    page++;
+                } else {
+                    hasMore = false;
+                }
+            }
+
+            const logs = allLogs;
 
             if (!logs || logs.length === 0) {
                 alert(`No data found for this ${period} report`);

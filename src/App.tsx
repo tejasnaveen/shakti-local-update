@@ -11,6 +11,7 @@ import TeamInchargeDashboard from './components/TeamIncharge';
 import { TelecallerDashboard } from './components/TelecallerDashboard/index';
 import LandingPage from './pages/landing-page';
 import SplashScreen from './components/SplashScreen';
+import { ActivityMonitor } from './components/ActivityMonitor';
 
 const getDashboardPath = (role?: string) => {
   switch (role) {
@@ -179,7 +180,9 @@ function App() {
       <AuthProvider>
         <NotificationProvider>
           <ConfirmationProvider>
-            <AppContent />
+            <ActivityMonitor>
+              <AppContent />
+            </ActivityMonitor>
           </ConfirmationProvider>
         </NotificationProvider>
       </AuthProvider>
