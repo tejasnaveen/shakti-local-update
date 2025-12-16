@@ -1,193 +1,164 @@
-import { StrictMode, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { NotificationProvider } from './components/shared/Notification';
-import { ConfirmationProvider } from './contexts/ConfirmationContext';
-import LoginPage from './components/LoginPage';
-import SuperAdminLoginPage from './components/SuperAdminLoginPage';
-import SuperAdminDashboard from './components/SuperAdminDashboard';
-import { CompanyAdminDashboard } from './components/CompanyAdmin/CompanyAdminDashboard';
-import TeamInchargeDashboard from './components/TeamIncharge';
-import { TelecallerDashboard } from './components/TelecallerDashboard/index';
-import LandingPage from './pages/landing-page';
-import SplashScreen from './components/SplashScreen';
+import { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './contexts/AuthContext';
+import ErrorBoundary from './components/shared/ErrorBoundary';
 import { ActivityMonitor } from './components/ActivityMonitor';
 
-const getDashboardPath = (role?: string) => {
-  switch (role) {
-    case 'SuperAdmin': return '/superadmin';
-    case 'CompanyAdmin': return '/companyadmin';
-    case 'TeamIncharge': return '/teamincharge';
-    case 'Telecaller': return '/telecaller';
-    default: return '/login';
-  }
-};
+// Layouts
+import SplashScreen from './components/SplashScreen';
+import LoginPage from './components/LoginPage';
+import SuperAdminLoginPage from './components/SuperAdminLoginPage';
 
-// Component to redirect subdomain to subdomain/login
-function SubdomainRedirect() {
-  const { subdomain } = useParams();
-  return <Navigate to={`/${subdomain}/login`} replace />;
+// Dashboards
+import SuperAdminDashboard from './components/SuperAdminDashboard';
+import { CompanyAdminDashboard } from './components/CompanyAdmin/CompanyAdminDashboard';
+
+import DashboardOverview from './pages/dashboard/DashboardOverview';
+
+// Pages
+import LandingPage from './pages/landing-page';
+import NotFound from './pages/errors/NotFound';
+
+// Providers
+import { AuthProvider } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+import { ConfirmationProvider } from './contexts/ConfirmationContext';
+
+interface AppProps { }
+
+// Wrapper components to pass auth props
+function ConnectedSuperAdminDashboard() {
+  const { user, logout } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return <SuperAdminDashboard user={user} onLogout={logout} />;
 }
 
-// Protected Route for SuperAdmin Login
-function ProtectedSuperAdminLogin() {
-  const { isAuthenticated } = useAuth();
-  const hasAccess = sessionStorage.getItem('shakti_sa_access') === 'true';
-
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  if (!hasAccess) {
-    return <Navigate to="/" replace />;
-  }
-
-  return <SuperAdminLoginPage />;
+function ConnectedCompanyAdminDashboard() {
+  const { user, logout } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return <CompanyAdminDashboard user={user} onLogout={logout} />;
 }
 
-function AppContent() {
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+export default function App({ }: AppProps) {
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
-  // Wait for auth to finish loading before rendering routes
+  // Initialize auth on mount
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          setCurrentUser(JSON.parse(storedUser));
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+      } finally {
+        setIsLoadingAuth(false);
+        setIsInitialized(true);
+      }
+    };
+
+    initializeAuth();
+  }, []);
+
+  if (!isInitialized || isLoadingAuth) {
+    return <SplashScreen onComplete={() => { }} />;
+  }
+
+  return (
+    <ErrorBoundary>
+      <ActivityMonitor>
+        <Router>
+          <AuthProvider initialUser={currentUser}>
+            <NotificationProvider>
+              <ConfirmationProvider>
+                <Routes>
+                  {/* Public Routes */}
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/superadmin-login" element={<SuperAdminLoginPage />} />
+
+                  {/* Super Admin Routes */}
+                  <Route
+                    path="/superadmin/*"
+                    element={
+                      <ProtectedRoute requiredRole="superadmin">
+                        <Routes>
+                          <Route path="/" element={<ConnectedSuperAdminDashboard />} />
+                          <Route path="*" element={<Navigate to="/superadmin" replace />} />
+                        </Routes>
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Company Admin Routes */}
+                  <Route
+                    path="/admin/*"
+                    element={
+                      <ProtectedRoute requiredRole="companyadmin">
+                        <Routes>
+                          <Route path="/" element={<ConnectedCompanyAdminDashboard />} />
+                          <Route path="*" element={<Navigate to="/admin" replace />} />
+                        </Routes>
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Employee/Telecaller Routes */}
+                  <Route
+                    path="/dashboard/*"
+                    element={
+                      <ProtectedRoute requiredRole={['telecaller', 'teamincharge']}>
+                        <Routes>
+                          <Route path="/" element={<DashboardOverview />} />
+                          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                        </Routes>
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* 404 Not Found */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </ConfirmationProvider>
+            </NotificationProvider>
+          </AuthProvider>
+        </Router>
+      </ActivityMonitor>
+    </ErrorBoundary>
+  );
+}
+
+// ✅ FIXED Protected Route Component
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  requiredRole?: string | string[];
+}
+
+function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
+  // ✅ CRITICAL FIX #1: Use useAuth() hook from context (NOT undefined currentUser)
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  // Show loading state while auth checks
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
+    return <SplashScreen onComplete={() => { }} />;
   }
 
-  return (
-    <Router>
-      <Routes>
-        {/* Main Domain Routes - Only Landing Page and Super Admin */}
-        <Route
-          path="/"
-          element={<LandingPage />}
-        />
-        <Route
-          path="/superadmin/login"
-          element={<ProtectedSuperAdminLogin />}
-        />
-        <Route
-          path="/superadmin"
-          element={
-            isAuthenticated && user?.role === 'SuperAdmin' ? (
-              <SuperAdminDashboard user={user} onLogout={logout} />
-            ) : (
-              <Navigate to="/superadmin/login" replace />
-            )
-          }
-        />
-
-        {/* Tenant Subdomain Routes - ONLY way to access tenant login */}
-        <Route
-          path="/:subdomain/login"
-          element={<LoginPage />}
-        />
-        <Route
-          path="/:subdomain"
-          element={<SubdomainRedirect />}
-        />
-
-        {/* Subdomain Dashboard Routes - Keep tenant in URL */}
-        <Route
-          path="/:subdomain/companyadmin"
-          element={
-            isAuthenticated && (user?.role === 'CompanyAdmin' || user?.role === 'SuperAdmin') ? (
-              <CompanyAdminDashboard user={user} onLogout={logout} />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-        <Route
-          path="/:subdomain/teamincharge"
-          element={
-            isAuthenticated && ['TeamIncharge', 'CompanyAdmin', 'SuperAdmin'].includes(user?.role || '') ? (
-              <TeamInchargeDashboard user={user!} onLogout={logout} />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-        <Route
-          path="/:subdomain/telecaller"
-          element={
-            isAuthenticated && user ? (
-              <TelecallerDashboard user={user} onLogout={logout} />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-
-        {/* Dashboard Routes - After Login (fallback without subdomain) */}
-        <Route
-          path="/dashboard"
-          element={isAuthenticated ? <Navigate to={getDashboardPath(user?.role)} replace /> : <Navigate to="/" replace />}
-        />
-        <Route
-          path="/companyadmin"
-          element={
-            isAuthenticated && (user?.role === 'CompanyAdmin' || user?.role === 'SuperAdmin') ? (
-              <CompanyAdminDashboard user={user} onLogout={logout} />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-        <Route
-          path="/teamincharge"
-          element={
-            isAuthenticated && ['TeamIncharge', 'CompanyAdmin', 'SuperAdmin'].includes(user?.role || '') ? (
-              <TeamInchargeDashboard user={user!} onLogout={logout} />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-        <Route
-          path="/telecaller"
-          element={
-            isAuthenticated && user ? (
-              <TelecallerDashboard user={user} onLogout={logout} />
-            ) : (
-              <Navigate to="/" replace />
-            )
-          }
-        />
-
-        {/* Catch-all - Redirect to home */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>
-  );
-}
-
-function App() {
-  const [showSplash, setShowSplash] = useState(true);
-
-  if (showSplash) {
-    return <SplashScreen onComplete={() => setShowSplash(false)} />;
+  // Not authenticated - redirect to login
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace />;
   }
 
-  return (
-    <StrictMode>
-      <AuthProvider>
-        <NotificationProvider>
-          <ConfirmationProvider>
-            <ActivityMonitor>
-              <AppContent />
-            </ActivityMonitor>
-          </ConfirmationProvider>
-        </NotificationProvider>
-      </AuthProvider>
-    </StrictMode>
-  );
-}
+  // Check role-based access
+  if (requiredRole) {
+    const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+    if (!roles.includes(user.role)) {
+      console.warn(`Unauthorized access attempt: ${user.role} tried to access ${requiredRole}`);
+      return <Navigate to="/" replace />;
+    }
+  }
 
-export default App;
+  return children;
+}
