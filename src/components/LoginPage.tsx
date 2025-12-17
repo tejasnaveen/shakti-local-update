@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase';
 
 const LoginPage: React.FC = () => {
   const { login, isAuthenticated } = useAuth();
-  const { subdomain } = useParams();
+  const { tenantSlug } = useParams();
   const [selectedRole, setSelectedRole] = React.useState('CompanyAdmin');
   const [username, setUsername] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -22,7 +22,7 @@ const LoginPage: React.FC = () => {
   // Check if tenant exists when subdomain is provided
   React.useEffect(() => {
     const checkTenant = async () => {
-      if (!subdomain) {
+      if (!tenantSlug) {
         setTenantExists(true);
         setIsCheckingTenant(false);
         setTenantName('Shakti CRM');
@@ -33,14 +33,14 @@ const LoginPage: React.FC = () => {
         const { data, error } = await supabase
           .from('tenants')
           .select('id, name, status, slug')
-          .eq('slug', subdomain)
+          .eq('slug', tenantSlug)
           .single();
 
         if (error || !data) {
-          console.error('Tenant not found:', subdomain);
+          console.error('Tenant not found:', tenantSlug);
           setTenantExists(false);
         } else if (data.status !== 'active') {
-          console.error('Tenant is not active:', subdomain);
+          console.error('Tenant is not active:', tenantSlug);
           setTenantExists(false);
         } else {
           setTenantExists(true);
@@ -55,7 +55,7 @@ const LoginPage: React.FC = () => {
     };
 
     checkTenant();
-  }, [subdomain]);
+  }, [tenantSlug]);
 
   // Show loading while checking tenant
   if (isCheckingTenant) {
@@ -76,11 +76,9 @@ const LoginPage: React.FC = () => {
 
   if (isAuthenticated) {
     // Redirect to subdomain-based dashboard if subdomain exists
-    if (subdomain) {
-      const dashboardPath = selectedRole === 'CompanyAdmin' ? 'companyadmin'
-        : selectedRole === 'TeamIncharge' ? 'teamincharge'
-          : 'telecaller';
-      return <Navigate to={`/${subdomain}/${dashboardPath}`} replace />;
+    if (tenantSlug) {
+      const dashboardPath = selectedRole === 'CompanyAdmin' ? '/admin' : '/dashboard';
+      return <Navigate to={dashboardPath} replace />;
     }
     return <Navigate to="/dashboard" replace />;
   }
@@ -118,7 +116,7 @@ const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      await login(username, password, selectedRole, subdomain);
+      await login(username, password, selectedRole, tenantSlug);
     } catch {
       setError('Invalid credentials');
     } finally {
@@ -152,7 +150,7 @@ const LoginPage: React.FC = () => {
           </div>
 
           {/* Brand Name - Show Tenant Name if subdomain, else Shakti */}
-          {subdomain && tenantName ? (
+          {tenantSlug && tenantName ? (
             <>
               <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 mb-2 tracking-tight">
                 {tenantName}

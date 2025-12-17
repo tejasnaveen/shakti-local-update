@@ -15,11 +15,13 @@ import { NotificationService, DashboardNotification } from '../../services/notif
 interface TelecallerNotificationViewProps {
     notifications: DashboardNotification[];
     setNotifications: React.Dispatch<React.SetStateAction<DashboardNotification[]>>;
+    onOpenAlerts: () => void;
 }
 
 export const TelecallerNotificationView: React.FC<TelecallerNotificationViewProps> = ({
     notifications,
-    setNotifications
+    setNotifications,
+    onOpenAlerts
 }) => {
     const [notificationFilter, setNotificationFilter] = useState('All');
 
@@ -140,14 +142,27 @@ export const TelecallerNotificationView: React.FC<TelecallerNotificationViewProp
                                         <div className="absolute top-4 right-4 w-2.5 h-2.5 bg-blue-500 rounded-full ring-4 ring-white"></div>
                                     )}
 
+                                    {/* Link wrapper for PTP or click actions */}
+                                    <div
+                                        className="absolute inset-0 cursor-pointer z-0"
+                                        onClick={() => {
+                                            if (notification.category === 'PTP' || notification.title.includes('PTP')) {
+                                                onOpenAlerts();
+                                            }
+                                        }}
+                                    ></div>
+
                                     {/* Hover Actions (Desktop) */}
-                                    <div className="absolute top-1/2 -translate-y-1/2 right-4 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex gap-2 bg-white/80 backdrop-blur-sm p-1 rounded-lg">
+                                    <div className="absolute top-1/2 -translate-y-1/2 right-4 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex gap-2 bg-white/80 backdrop-blur-sm p-1 rounded-lg z-10">
                                         <button
                                             onClick={() => {
                                                 const updated = notifications.map(n =>
                                                     n.id === notification.id ? { ...n, isRead: true } : n
                                                 );
                                                 setNotifications(updated);
+                                                if (notification.category === 'PTP' || notification.title.includes('PTP')) {
+                                                    onOpenAlerts();
+                                                }
                                             }}
                                             className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                             title="Mark as read"

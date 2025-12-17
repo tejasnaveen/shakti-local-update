@@ -30,6 +30,7 @@ export interface ActivityItem {
 
 export interface CustomerCase {
   id: string;
+  tenant_id: string;
   customerName: string;
   loanId: string;
   loanAmount: string;

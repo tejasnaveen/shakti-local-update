@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, User, DollarSign, MapPin, FileText, Calendar, AlertCircle, Eye } from 'lucide-react';
+import { X, User, DollarSign, MapPin, FileText } from 'lucide-react';
 import { customerCaseService } from '../../../services/customerCaseService';
 import { TeamService } from '../../../services/teamService';
 import { useNotification, notificationHelpers } from '../../shared/Notification';

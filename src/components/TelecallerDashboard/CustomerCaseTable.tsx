@@ -39,8 +39,9 @@ const CustomerCaseTable: React.FC<CustomerCaseTableProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [dpdFilter, setDpdFilter] = useState<string>('all');
+  const [callResponseFilter, setCallResponseFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('dpd');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -69,7 +70,6 @@ const CustomerCaseTable: React.FC<CustomerCaseTableProps> = ({
     }
 
     // Apply DPD filter
-    // Apply DPD filter
     if (dpdFilter !== 'all') {
       cases = cases.filter(c => {
         const dpd = c.dpd || 0;
@@ -88,6 +88,24 @@ const CustomerCaseTable: React.FC<CustomerCaseTableProps> = ({
         return true;
       });
       console.log('🔶 After DPD filter:', cases.length, 'cases');
+    }
+
+    // Apply Call Response Filter
+    if (callResponseFilter !== 'all') {
+      cases = cases.filter(c => {
+        const status = (c.latest_call_status || '').toUpperCase();
+        if (callResponseFilter === 'PTP') return status === 'PTP';
+        if (callResponseFilter === 'CONNECTED') return status === 'CONNECTED';
+        if (callResponseFilter === 'RNR') return status === 'RNR';
+        if (callResponseFilter === 'NOT_REACHABLE') return status === 'NOT RECHABLE' || status === 'NOT REACHABLE';
+        if (callResponseFilter === 'SWITCH_OFF') return status === 'SWITCH OFF';
+        if (callResponseFilter === 'BUSY') return status === 'BUSY';
+        if (callResponseFilter === 'CALLBACK') return status === 'CALLBACK';
+        if (callResponseFilter === 'WRONG_NUMBER') return status === 'WRONG NUMBER';
+        if (callResponseFilter === 'DISCONNECTED') return status === 'DISCONNECTED';
+        return true;
+      });
+      console.log('🔶 After Call Response filter:', cases.length, 'cases');
     }
 
     // Apply sorting
@@ -113,7 +131,7 @@ const CustomerCaseTable: React.FC<CustomerCaseTableProps> = ({
 
     console.log('🔶 Final filtered cases:', cases.length);
     return cases;
-  }, [customerCases, searchTerm, dpdFilter, sortBy, sortOrder, showPendingFollowupsOnly, casesWithPendingFollowups]);
+  }, [customerCases, searchTerm, dpdFilter, callResponseFilter, sortBy, sortOrder, showPendingFollowupsOnly, casesWithPendingFollowups]);
 
   const totalPages = getTotalPages(filteredCases.length, itemsPerPage);
   const paginatedCases = useMemo(() => {
@@ -441,6 +459,30 @@ const CustomerCaseTable: React.FC<CustomerCaseTableProps> = ({
             </div>
 
             <div className="flex items-center space-x-2">
+              <Phone className="w-4 h-4 text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">Response:</span>
+              <select
+                value={callResponseFilter}
+                onChange={(e) => {
+                  setCallResponseFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="all">All Responses</option>
+                <option value="CONNECTED">Connected</option>
+                <option value="PTP">PTP</option>
+                <option value="RNR">RNR</option>
+                <option value="NOT_REACHABLE">Not Reachable</option>
+                <option value="SWITCH_OFF">Switch Off</option>
+                <option value="BUSY">Busy</option>
+                <option value="CALLBACK">Callback</option>
+                <option value="WRONG_NUMBER">Wrong Number</option>
+                <option value="DISCONNECTED">Disconnected</option>
+              </select>
+            </div>
+
+            <div className="flex items-center space-x-2">
               <ArrowUpDown className="w-4 h-4 text-gray-500" />
               <span className="text-sm font-medium text-gray-700">Sort By:</span>
               <select
@@ -517,8 +559,23 @@ const CustomerCaseTable: React.FC<CustomerCaseTableProps> = ({
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="mt-6 flex items-center justify-between">
-            <div className="text-sm text-gray-700">
-              Page {currentPage} of {totalPages}
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-700">
+                Page {currentPage} of {totalPages}
+              </span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value={10}>10 per page</option>
+                <option value={25}>25 per page</option>
+                <option value={50}>50 per page</option>
+                <option value={100}>100 per page</option>
+              </select>
             </div>
             <div className="flex space-x-2">
               <button

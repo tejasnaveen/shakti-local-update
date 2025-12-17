@@ -36,7 +36,7 @@ export default function Navbar() {
       // Set access flag in session storage
       sessionStorage.setItem('shakti_sa_access', 'true');
       // Use window.location.href for proper navigation
-      window.location.href = "/superadmin/login";
+      window.location.href = "/superadmin-login";
       setShowLoginDialog(false);
     } else {
       setError("Invalid access code");

@@ -462,7 +462,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
         setSubdomainError('');
       } else {
         setSubdomainCheckStatus('taken');
-        setSubdomainError('Subdomain is already taken');
+        setSubdomainError('URL Slug is already taken');
         // Generate simple suggestions by appending numbers
         const suggestions = [
           `${sanitized}1`,
@@ -752,19 +752,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                   <div>
                     <h4 className="font-semibold text-gray-900">{tenant.name}</h4>
                     <p className="text-sm text-gray-600 font-mono">
-                      {(() => {
-                        // Extract subdomain from full URL for display
-                        const fullUrl = tenant.subdomain;
-                        if (fullUrl.includes('localhost')) {
-                          const match = fullUrl.match(/\/\/([^.]+)\.localhost/);
-                          return match ? match[1] : fullUrl;
-                        }
-                        if (fullUrl.includes('.')) {
-                          const match = fullUrl.match(/\/\/([^.]+)\./);
-                          return match ? match[1] : fullUrl;
-                        }
-                        return fullUrl;
-                      })()}
+                      {tenant.subdomain}
                     </p>
                   </div>
                 </div>
@@ -797,25 +785,25 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
               <div className="flex space-x-2">
                 <button
                   onClick={() => {
-                    const fullUrl = getDomainConfig().getFullSubdomainUrl(tenant.subdomain);
+                    const fullUrl = `${window.location.origin}/${tenant.subdomain}`;
                     navigator.clipboard.writeText(fullUrl);
                     showNotification(notificationHelpers.success(
                       'URL Copied',
-                      `Subdomain URL copied to clipboard!`
+                      `URL Slug copied to clipboard!`
                     ));
                   }}
                   className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-2 rounded-lg flex items-center justify-center"
-                  title="Copy subdomain URL"
+                  title="Copy URL Slug"
                 >
                   <Copy className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => {
-                    const fullUrl = getDomainConfig().getFullSubdomainUrl(tenant.subdomain);
+                    const fullUrl = `${window.location.origin}/${tenant.subdomain}`;
                     window.open(fullUrl, '_blank');
                   }}
                   className="bg-green-50 hover:bg-green-100 text-green-600 px-3 py-2 rounded-lg flex items-center justify-center"
-                  title="Open subdomain"
+                  title="Open Login Page"
                 >
                   <ExternalLink className="w-4 h-4" />
                 </button>
@@ -1113,7 +1101,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Subdomain *
+                  URL Slug *
                 </label>
                 <div className="space-y-2">
                   <div className="flex">
@@ -1136,7 +1124,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                       placeholder="companyname"
                     />
                     <span className="px-3 py-2 bg-gray-100 border border-l-0 border-gray-300 text-gray-600 flex items-center text-xs">
-                      {getDomainConfig().currentHost.includes('webcontainer-api.io') ? '-' : '.'}{getDomainConfig().baseDomain}
+                      /login
                     </span>
                     <div className="ml-2 flex items-center justify-center w-10">
                       {subdomainCheckStatus === 'checking' && (
@@ -1155,9 +1143,9 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                     <div className="flex items-start space-x-2 text-xs text-green-700 bg-green-50 p-2 rounded-lg">
                       <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="font-medium">Subdomain is available!</p>
+                        <p className="font-medium">URL Slug is available!</p>
                         <p className="text-green-600 mt-1 font-mono break-all">
-                          {getDomainConfig().getFullSubdomainUrl(newTenant.subdomain || '')}
+                          {window.location.origin}/{newTenant.subdomain || ''}
                         </p>
                       </div>
                     </div>
@@ -1188,7 +1176,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
 
                   {editingTenant && (
                     <p className="text-xs text-gray-500">
-                      Subdomain cannot be changed after creation
+                      URL Slug cannot be changed after creation
                     </p>
                   )}
 
@@ -1332,22 +1320,22 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Subdomain
+                    URL Slug
                   </label>
                   <div className="flex items-center space-x-2">
                     <p className="flex-1 text-gray-900 bg-gray-50 px-3 py-2 rounded-lg font-mono text-sm break-all">
-                      {getDomainConfig().getFullSubdomainUrl(viewingTenant.subdomain)}
+                      {window.location.origin}/{viewingTenant.subdomain}
                     </p>
                     <button
                       onClick={() => {
-                        copyToClipboard(getDomainConfig().getFullSubdomainUrl(viewingTenant.subdomain));
+                        copyToClipboard(`${window.location.origin}/${viewingTenant.subdomain}`);
                         showNotification(notificationHelpers.success(
                           'URL Copied',
-                          'Subdomain URL copied to clipboard!'
+                          'URL Slug copied to clipboard!'
                         ));
                       }}
                       className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Copy subdomain URL"
+                      title="Copy URL Slug"
                     >
                       <Copy className="w-4 h-4" />
                     </button>

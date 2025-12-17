@@ -37,7 +37,7 @@ import { CustomerCase as DashboardCustomerCase } from './types';
 import { useAuth, User } from '../../contexts/AuthContext';
 import { AlertButton } from './AlertButton';
 import { AlertsDrawer } from './AlertsDrawer';
-import { AlertCase } from '../../services/alertService';
+import { AlertService, AlertCase } from '../../services/alertService';
 import { TelecallerNotificationView } from './TelecallerNotificationView';
 import { BreakManager } from './BreakManager';
 import { PTPAlertSection } from '../shared/reports/PTPAlertSection';
@@ -299,6 +299,17 @@ export const TelecallerDashboard: React.FC<TelecallerDashboardProps> = ({ user, 
       ));
     }
   }, [showNotification, loadDashboardData]);
+
+  const handleOpenAlerts = useCallback(async () => {
+    if (!user.id) return;
+    try {
+      const result = await AlertService.getAlerts(user.id);
+      setCurrentAlerts(result.cases);
+      setIsAlertsDrawerOpen(true);
+    } catch (error) {
+      console.error('Error fetching alerts:', error);
+    }
+  }, [user.id]);
 
   const { lastNotificationTime } = useAuth(); // Get real-time signal
 
@@ -600,6 +611,7 @@ export const TelecallerDashboard: React.FC<TelecallerDashboardProps> = ({ user, 
                 <TelecallerNotificationView
                   notifications={notifications}
                   setNotifications={setNotifications}
+                  onOpenAlerts={handleOpenAlerts}
                 />
               )}
 
@@ -795,7 +807,13 @@ export const TelecallerDashboard: React.FC<TelecallerDashboardProps> = ({ user, 
                 call_status: logData.callStatus,
                 call_notes: logData.remarks,
                 call_duration: parseInt(logData.callDuration) || 0,
-                ptp_date: logData.ptpDate ? `${logData.ptpDate}T${logData.ptpTime || '00:00'}:00` : undefined,
+                ptp_date: logData.ptpDate ? (() => {
+                  // Create a Date object from the local date and time
+                  const dateTimeString = `${logData.ptpDate}T${logData.ptpTime || '00:00'}:00`;
+                  const localDate = new Date(dateTimeString);
+                  // Convert to ISO string which includes timezone offset
+                  return localDate.toISOString();
+                })() : undefined,
                 amount_collected: logData.ptpAmount,
                 callback_date: logData.callbackDate,
                 callback_time: logData.callbackTime

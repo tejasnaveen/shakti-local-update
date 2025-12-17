@@ -143,8 +143,16 @@ export const CaseDetailsModal: React.FC<CaseDetailsModalProps> = ({ isOpen, onCl
     setIsSubmitting(true);
     try {
       const ptpDateTime = (ptpDate && ptpTime)
-        ? `${ptpDate}T${ptpTime}:00`
-        : (ptpDate ? `${ptpDate}T00:00:00` : undefined);
+        ? (() => {
+          const dateTimeString = `${ptpDate}T${ptpTime}:00`;
+          const localDate = new Date(dateTimeString);
+          return localDate.toISOString();
+        })()
+        : (ptpDate ? (() => {
+          const dateTimeString = `${ptpDate}T00:00:00`;
+          const localDate = new Date(dateTimeString);
+          return localDate.toISOString();
+        })() : undefined);
 
       console.log('Saving call log with data:', {
         case_id: caseData.id,
@@ -200,7 +208,29 @@ export const CaseDetailsModal: React.FC<CaseDetailsModalProps> = ({ isOpen, onCl
 
   const formatDateTime = (dateString: string) => {
     try {
-      const date = new Date(dateString);
+      // Check if the string already has timezone info (ends with Z or has +/- offset)
+      const hasTimezone = /Z$|[+-]\d{2}:\d{2}$/.test(dateString);
+
+      let date: Date;
+      if (hasTimezone) {
+        // New format with timezone - parse normally
+        date = new Date(dateString);
+      } else {
+        // Old format without timezone - treat as local time
+        // Append local timezone offset to ensure it's interpreted as local time
+        const localDate = new Date(dateString);
+        // If the string doesn't have 'T', it might be date-only, handle that
+        if (!dateString.includes('T')) {
+          date = localDate;
+        } else {
+          // For datetime strings without timezone, we need to ensure they're treated as local
+          // The issue is PostgreSQL returns them as-is, but JavaScript interprets them as UTC
+          // So we need to add the timezone offset to get back to local time
+          const offset = new Date().getTimezoneOffset();
+          date = new Date(localDate.getTime() + (offset * 60 * 1000));
+        }
+      }
+
       return date.toLocaleString('en-IN', {
         year: 'numeric',
         month: 'short',

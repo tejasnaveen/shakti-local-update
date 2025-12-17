@@ -29,13 +29,13 @@ interface AppProps { }
 // Wrapper components to pass auth props
 function ConnectedSuperAdminDashboard() {
   const { user, logout } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/" replace />;
   return <SuperAdminDashboard user={user} onLogout={logout} />;
 }
 
 function ConnectedCompanyAdminDashboard() {
   const { user, logout } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/" replace />;
   return <CompanyAdminDashboard user={user} onLogout={logout} />;
 }
 
@@ -69,22 +69,24 @@ export default function App({ }: AppProps) {
 
   return (
     <ErrorBoundary>
-      <ActivityMonitor>
-        <Router>
-          <AuthProvider initialUser={currentUser}>
+      <Router>
+        <AuthProvider initialUser={currentUser}>
+          <ActivityMonitor>
             <NotificationProvider>
               <ConfirmationProvider>
                 <Routes>
                   {/* Public Routes */}
                   <Route path="/" element={<LandingPage />} />
-                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/:tenantSlug" element={<LoginPage />} />
+                  <Route path="/tenant-login" element={<LoginPage />} />
+                  <Route path="/login" element={<Navigate to="/" replace />} />
                   <Route path="/superadmin-login" element={<SuperAdminLoginPage />} />
 
                   {/* Super Admin Routes */}
                   <Route
                     path="/superadmin/*"
                     element={
-                      <ProtectedRoute requiredRole="superadmin">
+                      <ProtectedRoute requiredRole="SuperAdmin">
                         <Routes>
                           <Route path="/" element={<ConnectedSuperAdminDashboard />} />
                           <Route path="*" element={<Navigate to="/superadmin" replace />} />
@@ -97,7 +99,7 @@ export default function App({ }: AppProps) {
                   <Route
                     path="/admin/*"
                     element={
-                      <ProtectedRoute requiredRole="companyadmin">
+                      <ProtectedRoute requiredRole="CompanyAdmin">
                         <Routes>
                           <Route path="/" element={<ConnectedCompanyAdminDashboard />} />
                           <Route path="*" element={<Navigate to="/admin" replace />} />
@@ -110,7 +112,7 @@ export default function App({ }: AppProps) {
                   <Route
                     path="/dashboard/*"
                     element={
-                      <ProtectedRoute requiredRole={['telecaller', 'teamincharge']}>
+                      <ProtectedRoute requiredRole={['Telecaller', 'TeamIncharge']}>
                         <Routes>
                           <Route path="/" element={<DashboardOverview />} />
                           <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -124,9 +126,9 @@ export default function App({ }: AppProps) {
                 </Routes>
               </ConfirmationProvider>
             </NotificationProvider>
-          </AuthProvider>
-        </Router>
-      </ActivityMonitor>
+          </ActivityMonitor>
+        </AuthProvider>
+      </Router>
     </ErrorBoundary>
   );
 }
@@ -148,7 +150,7 @@ function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
 
   // Not authenticated - redirect to login
   if (!isAuthenticated || !user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   // Check role-based access

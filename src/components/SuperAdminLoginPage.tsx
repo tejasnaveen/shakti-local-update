@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { usePageConfig } from '../utils/pageUtils';
 
 const SuperAdminLoginPage: React.FC = () => {
-    const { login, isAuthenticated } = useAuth();
+    const { login, isAuthenticated, user } = useAuth();
     const [username, setUsername] = React.useState('');
     const [password, setPassword] = React.useState('');
     const [isLoading, setIsLoading] = React.useState(false);
@@ -13,7 +13,21 @@ const SuperAdminLoginPage: React.FC = () => {
 
     usePageConfig('login', 'Super Admin Login');
 
-    if (isAuthenticated) {
+    // Guard: Check for secret access flag
+    const hasAccess = sessionStorage.getItem('shakti_sa_access');
+    if (hasAccess !== 'true') {
+        return <Navigate to="/" replace />;
+    }
+
+
+
+    if (isAuthenticated && user) {
+        if (user.role === 'SuperAdmin') {
+            return <Navigate to="/superadmin" replace />;
+        }
+        if (user.role === 'CompanyAdmin') {
+            return <Navigate to="/admin" replace />;
+        }
         return <Navigate to="/dashboard" replace />;
     }
 
@@ -120,8 +134,8 @@ const SuperAdminLoginPage: React.FC = () => {
                                 type="submit"
                                 disabled={isLoading}
                                 className={`w-full py-3 px-6 rounded-lg font-semibold text-white transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg ${isLoading
-                                        ? 'bg-gray-600 cursor-not-allowed'
-                                        : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
+                                    ? 'bg-gray-600 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
                                     }`}
                             >
                                 {isLoading ? 'Logging in...' : 'Login'}

@@ -8,14 +8,14 @@ const DashboardOverview: React.FC = () => {
     const { user, logout } = useAuth();
 
     if (!user) {
-        return <Navigate to="/login" replace />;
+        return <Navigate to="/" replace />;
     }
 
-    if (user.role === 'telecaller') {
+    if (user.role === 'Telecaller') {
         return <TelecallerDashboard user={user} onLogout={logout} />;
     }
 
-    if (user.role === 'teamincharge') {
+    if (user.role === 'TeamIncharge') {
         // TeamInchargeDashboard inside uses useAuth, so might not need props, 
         // but looking at its definition it takes no props.
         return <TeamInchargeDashboard user={user} onLogout={logout} />;
