@@ -426,50 +426,50 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
       address: '',
       gstNumber: ''
     });
-    setSubdomainCheckStatus('idle');
-    setSubdomainError('');
-    setSubdomainSuggestions([]);
-    setIsSubdomainManuallyEdited(false);
+    setSlugCheckStatus('idle');
+    setSlugError('');
+    setSlugSuggestions([]);
+    setIsSlugManuallyEdited(false);
     if (checkTimeout) {
       clearTimeout(checkTimeout);
       setCheckTimeout(null);
     }
   };
 
-  const handleSubdomainChange = useCallback((value: string) => {
-    const sanitized = sanitizeSubdomain(value);
+  const handleSlugChange = useCallback((value: string) => {
+    const sanitized = sanitizeSlug(value);
     setNewTenant(prev => ({ ...prev, slug: sanitized }));
-    setSubdomainSuggestions([]);
+    setSlugSuggestions([]);
 
     if (checkTimeout) {
       clearTimeout(checkTimeout);
     }
 
     if (!sanitized || sanitized.length < 3) {
-      setSubdomainCheckStatus('idle');
-      setSubdomainError('');
+      setSlugCheckStatus('idle');
+      setSlugError('');
       return;
     }
 
-    setSubdomainCheckStatus('checking');
-    setSubdomainError('');
+    setSlugCheckStatus('checking');
+    setSlugError('');
 
     const timeout = setTimeout(async () => {
-      const isAvailable = await checkSubdomainAvailability(sanitized);
+      const isAvailable = await checkSlugAvailability(sanitized);
 
       if (isAvailable) {
-        setSubdomainCheckStatus('available');
-        setSubdomainError('');
+        setSlugCheckStatus('available');
+        setSlugError('');
       } else {
-        setSubdomainCheckStatus('taken');
-        setSubdomainError('URL Slug is already taken');
+        setSlugCheckStatus('taken');
+        setSlugError('URL Slug is already taken');
         // Generate simple suggestions by appending numbers
         const suggestions = [
           `${sanitized}1`,
           `${sanitized}2`,
           `${sanitized}-app`
         ];
-        setSubdomainSuggestions(suggestions);
+        setSlugSuggestions(suggestions);
       }
     }, 500);
 
@@ -478,9 +478,9 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
 
   const handleCompanyNameChange = (name: string) => {
     setNewTenant(prev => ({ ...prev, name }));
-    if (!isSubdomainManuallyEdited && !editingTenant) {
-      const generated = sanitizeSubdomain(name);
-      handleSubdomainChange(generated);
+    if (!isSlugManuallyEdited && !editingTenant) {
+      const generated = sanitizeSlug(name);
+      handleSlugChange(generated);
     }
   };
 
@@ -1109,8 +1109,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                       type="text"
                       value={newTenant.slug || ''}
                       onChange={(e) => {
-                        setIsSubdomainManuallyEdited(true);
-                        handleSubdomainChange(e.target.value);
+                        setIsSlugManuallyEdited(true);
+                        handleSlugChange(e.target.value);
                       }}
                       disabled={!!editingTenant}
                       className={`flex-1 px-3 py-2 border rounded-l-lg focus:ring-2 focus:border-transparent transition-colors ${editingTenant
@@ -1162,7 +1162,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                               <button
                                 key={suggestion}
                                 type="button"
-                                onClick={() => handleSubdomainChange(suggestion)}
+                                onClick={() => handleSlugChange(suggestion)}
                                 className="px-2 py-1 bg-white text-red-700 border border-red-200 rounded hover:bg-red-100 transition-colors text-xs"
                               >
                                 {suggestion}
