@@ -693,8 +693,8 @@ export const customerCaseService = {
   },
 
   async assignCase(caseId: string, assignment: CaseAssignment): Promise<void> {
-    const updateData: Partial<CustomerCase> = {
-      telecaller_id: assignment.telecallerId || undefined,
+    const updateData: any = {
+      telecaller_id: assignment.telecallerId || null,
       updated_at: new Date().toISOString()
     };
 
@@ -712,10 +712,11 @@ export const customerCaseService = {
         throw new Error('Failed to find telecaller details');
       }
 
-      updateData.assigned_employee_id = telecaller.emp_id || undefined;
+      updateData.assigned_employee_id = telecaller.emp_id || null;
     } else {
-      // Unassigning - clear assigned_employee_id
-      updateData.assigned_employee_id = undefined;
+      // Unassigning - clear assigned_employee_id and telecaller_id
+      updateData.assigned_employee_id = null;
+      updateData.telecaller_id = null;
     }
 
     const { error } = await supabase
