@@ -58,15 +58,35 @@ export const loginCompanyAdmin = async (credentials: LoginCredentials, tenantSlu
   const { username, password } = credentials;
 
   console.log('Attempting login with identifier:', username);
+
+  let tenantId: string | undefined;
+
   if (tenantSlug) {
     console.log('Validating against tenant slug:', tenantSlug);
+    const { data: tenantData, error: tenantError } = await supabase
+      .from('tenants')
+      .select('id')
+      .eq('slug', tenantSlug)
+      .maybeSingle();
+
+    if (tenantError || !tenantData) {
+      console.error('Tenant not found for slug:', tenantSlug);
+      throw new Error('Invalid tenant');
+    }
+
+    tenantId = tenantData.id;
   }
 
-  const { data: adminData, error: adminError } = await supabase
+  let adminQuery = supabase
     .from(COMPANY_ADMIN_TABLE)
     .select('id, employee_id, name, email, password_hash, tenant_id')
-    .eq('employee_id', username)
-    .maybeSingle();
+    .eq('employee_id', username);
+
+  if (tenantId) {
+    adminQuery = adminQuery.eq('tenant_id', tenantId);
+  }
+
+  const { data: adminData, error: adminError } = await adminQuery.maybeSingle();
 
   console.log('Company admin query result:', { adminData, adminError });
 
@@ -83,20 +103,6 @@ export const loginCompanyAdmin = async (credentials: LoginCredentials, tenantSlu
       throw new Error('Invalid employee ID or password');
     }
 
-    // Validate tenant slug if provided
-    if (tenantSlug) {
-      const { data: tenantData } = await supabase
-        .from('tenants')
-        .select('slug')
-        .eq('id', adminData.tenant_id)
-        .single();
-
-      if (!tenantData || tenantData.slug !== tenantSlug) {
-        console.error('Tenant mismatch: User belongs to different tenant');
-        throw new Error('You do not have access to this tenant');
-      }
-    }
-
     return {
       id: adminData.id,
       username: adminData.employee_id,
@@ -107,11 +113,16 @@ export const loginCompanyAdmin = async (credentials: LoginCredentials, tenantSlu
     };
   }
 
-  const { data: employeeData, error: employeeError } = await supabase
+  let employeeQuery = supabase
     .from(EMPLOYEE_TABLE)
     .select('id, name, emp_id, mobile, password_hash, role, tenant_id, team_id, status')
-    .eq('emp_id', username)
-    .maybeSingle();
+    .eq('emp_id', username);
+
+  if (tenantId) {
+    employeeQuery = employeeQuery.eq('tenant_id', tenantId);
+  }
+
+  const { data: employeeData, error: employeeError } = await employeeQuery.maybeSingle();
 
   console.log('Employee query result:', { employeeData, employeeError });
 
@@ -130,20 +141,6 @@ export const loginCompanyAdmin = async (credentials: LoginCredentials, tenantSlu
 
     if (!isPasswordValid) {
       throw new Error('Invalid employee ID or password');
-    }
-
-    // Validate tenant slug if provided
-    if (tenantSlug) {
-      const { data: tenantData } = await supabase
-        .from('tenants')
-        .select('slug')
-        .eq('id', employeeData.tenant_id)
-        .single();
-
-      if (!tenantData || tenantData.slug !== tenantSlug) {
-        console.error('Tenant mismatch: Employee belongs to different tenant');
-        throw new Error('You do not have access to this tenant');
-      }
     }
 
     // Track login activity
