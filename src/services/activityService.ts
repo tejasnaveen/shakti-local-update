@@ -315,62 +315,57 @@ export const activityService = {
             const lastUpdate = localStorage.getItem(lastUpdateKey);
             const now = Date.now();
 
-            // Throttle to 1 min
             if (lastUpdate && now - parseInt(lastUpdate) < 60000) {
                 return;
             }
 
-            // Get current session to handle Idle -> Online transition accumulation
-            const { data: session } = await supabase
+            const { data: sessions } = await supabase
                 .from(USER_ACTIVITY_TABLE)
-                .select('status, last_active_time, total_idle_time')
+                .select('id, status, last_active_time, total_idle_time')
                 .eq('employee_id', employeeId)
                 .is('logout_time', null)
-                .single();
+                .order('login_time', { ascending: false });
 
+            if (!sessions || sessions.length === 0) {
+                localStorage.setItem(lastUpdateKey, now.toString());
+                return;
+            }
+
+            if (sessions.length > 1) {
+                const newestSessionId = sessions[0].id;
+                await supabase
+                    .from(USER_ACTIVITY_TABLE)
+                    .update({
+                        logout_time: new Date().toISOString(),
+                        status: 'Offline'
+                    })
+                    .eq('employee_id', employeeId)
+                    .is('logout_time', null)
+                    .neq('id', newestSessionId);
+            }
+
+            const session = sessions[0];
             let updatePayload: any = {
                 last_active_time: new Date().toISOString()
             };
-
-            // If coming back from Idle (status was Idle, but now user is active), add to total_idle_time
-            // Note: The 'status' column in DB might be 'Online' even if frontend thinks 'Idle' due to delay.
-            // But if we explicitly set it to Idle in DB (auto-idle), this captures it.
-            // If the user was just effectively idle but status didn't change in DB, we can't capture it easily here without more state.
-            // However, the rule "Idle Time starts when status changes to Idle" implies we should rely on the status field.
 
             if (session && session.status === 'Idle') {
                 const lastActive = parseUTCDate(session.last_active_time);
                 const idleDuration = Math.floor((now - lastActive.getTime()) / 60000);
 
-                updatePayload.status = 'Online'; // Auto-resume
+                updatePayload.status = 'Online';
                 updatePayload.total_idle_time = (session.total_idle_time || 0) + idleDuration;
             }
 
-            const { data, error } = await supabase
+            const { error } = await supabase
                 .from(USER_ACTIVITY_TABLE)
                 .update(updatePayload)
-                .eq('employee_id', employeeId)
-                .is('logout_time', null)
-                .select();
+                .eq('id', session.id)
+                .is('logout_time', null);
 
             if (error) throw error;
 
             localStorage.setItem(lastUpdateKey, now.toString());
-
-            // Self-healing session creation
-            if (!data || data.length === 0) {
-                console.log('No active session found for heartbeat, creating new one');
-                const { error: insertError } = await supabase.from(USER_ACTIVITY_TABLE).insert({
-                    tenant_id: tenantId,
-                    employee_id: employeeId,
-                    login_time: new Date().toISOString(),
-                    last_active_time: new Date().toISOString(),
-                    status: 'Online',
-                    total_break_time: 0,
-                    total_idle_time: 0
-                });
-                if (insertError) {/* Handle conflict silently */ }
-            }
         } catch (error) {
             console.error('Error updating last active:', error);
         }
