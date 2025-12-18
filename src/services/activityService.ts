@@ -463,13 +463,15 @@ export const activityService = {
                 .from('office_settings')
                 .select('office_start_time, office_end_time, timezone, working_days')
                 .eq('tenant_id', tenantId)
-                .single();
+                .maybeSingle();
 
             if (error) {
-                if (error.code === 'PGRST116') {
-                    return null;
-                }
-                throw error;
+                console.error('Error fetching office hours:', error);
+                return null;
+            }
+
+            if (!data) {
+                return null;
             }
 
             return {
