@@ -144,40 +144,20 @@ export const CaseDetailsModal: React.FC<CaseDetailsModalProps> = ({ isOpen, onCl
     try {
       const ptpDateTime = (ptpDate && ptpTime)
         ? (() => {
-          const dateTimeString = `${ptpDate}T${ptpTime}:00`;
-          const localDate = new Date(dateTimeString);
-
-          const tzOffset = -localDate.getTimezoneOffset();
+          const tzOffset = -new Date().getTimezoneOffset();
           const tzHours = Math.floor(Math.abs(tzOffset) / 60).toString().padStart(2, '0');
           const tzMinutes = (Math.abs(tzOffset) % 60).toString().padStart(2, '0');
           const tzSign = tzOffset >= 0 ? '+' : '-';
 
-          const year = localDate.getFullYear();
-          const month = (localDate.getMonth() + 1).toString().padStart(2, '0');
-          const day = localDate.getDate().toString().padStart(2, '0');
-          const hours = localDate.getHours().toString().padStart(2, '0');
-          const minutes = localDate.getMinutes().toString().padStart(2, '0');
-          const seconds = localDate.getSeconds().toString().padStart(2, '0');
-
-          return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${tzSign}${tzHours}:${tzMinutes}`;
+          return `${ptpDate}T${ptpTime}:00${tzSign}${tzHours}:${tzMinutes}`;
         })()
         : (ptpDate ? (() => {
-          const dateTimeString = `${ptpDate}T09:00:00`;
-          const localDate = new Date(dateTimeString);
-
-          const tzOffset = -localDate.getTimezoneOffset();
+          const tzOffset = -new Date().getTimezoneOffset();
           const tzHours = Math.floor(Math.abs(tzOffset) / 60).toString().padStart(2, '0');
           const tzMinutes = (Math.abs(tzOffset) % 60).toString().padStart(2, '0');
           const tzSign = tzOffset >= 0 ? '+' : '-';
 
-          const year = localDate.getFullYear();
-          const month = (localDate.getMonth() + 1).toString().padStart(2, '0');
-          const day = localDate.getDate().toString().padStart(2, '0');
-          const hours = localDate.getHours().toString().padStart(2, '0');
-          const minutes = localDate.getMinutes().toString().padStart(2, '0');
-          const seconds = localDate.getSeconds().toString().padStart(2, '0');
-
-          return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${tzSign}${tzHours}:${tzMinutes}`;
+          return `${ptpDate}T09:00:00${tzSign}${tzHours}:${tzMinutes}`;
         })() : undefined);
 
       console.log('Saving call log with data:', {
