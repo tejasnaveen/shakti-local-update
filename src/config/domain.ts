@@ -37,23 +37,22 @@ export const getDomainConfig = () => {
     baseDomain,
     currentProtocol,
     currentHost,
-    getFullSubdomainUrl: (subdomain: string) => {
-      // Use path-based routing for temp domains
-      return `${currentProtocol}//${currentHost}/${subdomain}`;
+    getFullSlugUrl: (slug: string) => {
+      return `${currentProtocol}//${currentHost}/${slug}`;
     },
-    getLoginUrl: (subdomain: string) => {
-      return `${currentProtocol}//${currentHost}/${subdomain}/login`;
+    getLoginUrl: (slug: string) => {
+      return `${currentProtocol}//${currentHost}/${slug}/login`;
     },
-    getDisplayDomain: (subdomain?: string) => {
-      if (subdomain) {
-        return `${currentHost}/${subdomain}`;
+    getDisplayDomain: (slug?: string) => {
+      if (slug) {
+        return `${currentHost}/${slug}`;
       }
       return baseDomain;
     }
   };
 };
 
-export const RESERVED_SUBDOMAINS = [
+export const RESERVED_SLUGS = [
   'www',
   'admin',
   'superadmin',
@@ -91,4 +90,4 @@ export const RESERVED_SUBDOMAINS = [
   'images'
 ];
 
-export const SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?$/;
+export const SLUG_REGEX = /^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?$/;

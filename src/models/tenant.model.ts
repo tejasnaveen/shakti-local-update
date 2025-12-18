@@ -1,7 +1,7 @@
 export interface Tenant {
   id: string;
   name: string;
-  subdomain: string;
+  slug: string;
   status: 'active' | 'inactive' | 'suspended';
   proprietor_name: string | null;
   phone_number: string | null;
@@ -31,7 +31,7 @@ export interface Tenant {
 
 export interface TenantInsert {
   name: string;
-  subdomain: string;
+  slug: string;
   status?: 'active' | 'inactive' | 'suspended';
   proprietor_name?: string;
   phone_number?: string;
@@ -51,7 +51,7 @@ export interface TenantInsert {
 
 export interface TenantUpdate {
   name?: string;
-  subdomain?: string;
+  slug?: string;
   status?: 'active' | 'inactive' | 'suspended';
   proprietor_name?: string;
   phone_number?: string;

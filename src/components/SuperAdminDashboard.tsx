@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Layout from './Layout';
 import { getAdminsByTenantId, createAdmin, updateAdmin, deleteAdmin, resetAdminPassword, toggleAdminStatus } from '../utils/adminManagement';
-import { getAllTenants, createTenant, updateTenant, deleteTenant, checkSubdomainAvailability, sanitizeSubdomain, Tenant } from '../utils/simplifiedTenantManagement';
+import { getAllTenants, createTenant, updateTenant, deleteTenant, checkSlugAvailability, sanitizeSlug, Tenant } from '../utils/simplifiedTenantManagement';
 import { TenantInsert } from '../models/tenant.model';
 import { getDomainConfig } from '../config/domain';
 import { usePageConfig, getRoleBasedTitle } from '../utils/pageUtils';
@@ -210,18 +210,18 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
   });
   const [newTenant, setNewTenant] = useState<Partial<Tenant>>({
     name: '',
-    subdomain: '',
+    slug: '',
     status: 'active',
     proprietorName: '',
     phoneNumber: '',
     address: '',
     gstNumber: ''
   });
-  const [subdomainCheckStatus, setSubdomainCheckStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
-  const [subdomainError, setSubdomainError] = useState<string>('');
-  const [subdomainSuggestions, setSubdomainSuggestions] = useState<string[]>([]);
+  const [slugCheckStatus, setSlugCheckStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
+  const [slugError, setSlugError] = useState<string>('');
+  const [slugSuggestions, setSlugSuggestions] = useState<string[]>([]);
   const [checkTimeout, setCheckTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [isSubdomainManuallyEdited, setIsSubdomainManuallyEdited] = useState(false);
+  const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
 
   // Load tenants on component mount
   useEffect(() => {
@@ -419,7 +419,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
   const resetForm = () => {
     setNewTenant({
       name: '',
-      subdomain: '',
+      slug: '',
       status: 'active',
       proprietorName: '',
       phoneNumber: '',
@@ -438,7 +438,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
 
   const handleSubdomainChange = useCallback((value: string) => {
     const sanitized = sanitizeSubdomain(value);
-    setNewTenant(prev => ({ ...prev, subdomain: sanitized }));
+    setNewTenant(prev => ({ ...prev, slug: sanitized }));
     setSubdomainSuggestions([]);
 
     if (checkTimeout) {
@@ -491,7 +491,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
   // Tenant management functions
   const handleCreateTenant = async () => {
     try {
-      if (!newTenant.name || !newTenant.subdomain) {
+      if (!newTenant.name || !newTenant.slug) {
         showNotification(notificationHelpers.error(
           'Validation Error',
           'Please fill in all required fields (Company Name and Subdomain)'
@@ -499,17 +499,17 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
         return;
       }
 
-      if (!editingTenant && subdomainCheckStatus !== 'available') {
+      if (!editingTenant && slugCheckStatus !== 'available') {
         showNotification(notificationHelpers.error(
           'Validation Error',
-          'Please ensure the subdomain is available'
+          'Please ensure the slug is available'
         ));
         return;
       }
 
       const tenantData: TenantInsert = {
         name: newTenant.name!,
-        subdomain: newTenant.subdomain!.toLowerCase(),
+        slug: newTenant.slug!.toLowerCase(),
         status: newTenant.status!,
         proprietor_name: newTenant.proprietorName || '',
         phone_number: newTenant.phoneNumber || '',
@@ -752,7 +752,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                   <div>
                     <h4 className="font-semibold text-gray-900">{tenant.name}</h4>
                     <p className="text-sm text-gray-600 font-mono">
-                      {tenant.subdomain}
+                      {tenant.slug}
                     </p>
                   </div>
                 </div>
@@ -785,7 +785,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
               <div className="flex space-x-2">
                 <button
                   onClick={() => {
-                    const fullUrl = `${window.location.origin}/${tenant.subdomain}`;
+                    const fullUrl = `${window.location.origin}/${tenant.slug}`;
                     navigator.clipboard.writeText(fullUrl);
                     showNotification(notificationHelpers.success(
                       'URL Copied',
@@ -799,7 +799,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                 </button>
                 <button
                   onClick={() => {
-                    const fullUrl = `${window.location.origin}/${tenant.subdomain}`;
+                    const fullUrl = `${window.location.origin}/${tenant.slug}`;
                     window.open(fullUrl, '_blank');
                   }}
                   className="bg-green-50 hover:bg-green-100 text-green-600 px-3 py-2 rounded-lg flex items-center justify-center"
@@ -812,7 +812,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                     setEditingTenant(tenant);
                     setNewTenant({
                       name: tenant.name,
-                      subdomain: tenant.subdomain,
+                      slug: tenant.slug,
                       status: tenant.status,
                       proprietorName: tenant.proprietorName || '',
                       phoneNumber: tenant.phoneNumber || '',
@@ -1107,7 +1107,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                   <div className="flex">
                     <input
                       type="text"
-                      value={newTenant.subdomain || ''}
+                      value={newTenant.slug || ''}
                       onChange={(e) => {
                         setIsSubdomainManuallyEdited(true);
                         handleSubdomainChange(e.target.value);
@@ -1115,9 +1115,9 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                       disabled={!!editingTenant}
                       className={`flex-1 px-3 py-2 border rounded-l-lg focus:ring-2 focus:border-transparent transition-colors ${editingTenant
                         ? 'bg-gray-100 cursor-not-allowed border-gray-300'
-                        : subdomainCheckStatus === 'available'
+                        : slugCheckStatus === 'available'
                           ? 'border-green-500 focus:ring-green-500'
-                          : subdomainCheckStatus === 'taken' || subdomainCheckStatus === 'invalid'
+                          : slugCheckStatus === 'taken' || slugCheckStatus === 'invalid'
                             ? 'border-red-500 focus:ring-red-500'
                             : 'border-gray-300 focus:ring-blue-500'
                         }`}
@@ -1127,38 +1127,38 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                       /login
                     </span>
                     <div className="ml-2 flex items-center justify-center w-10">
-                      {subdomainCheckStatus === 'checking' && (
+                      {slugCheckStatus === 'checking' && (
                         <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
                       )}
-                      {subdomainCheckStatus === 'available' && (
+                      {slugCheckStatus === 'available' && (
                         <CheckCircle2 className="w-5 h-5 text-green-500" />
                       )}
-                      {(subdomainCheckStatus === 'taken' || subdomainCheckStatus === 'invalid') && (
+                      {(slugCheckStatus === 'taken' || slugCheckStatus === 'invalid') && (
                         <XCircle className="w-5 h-5 text-red-500" />
                       )}
                     </div>
                   </div>
 
-                  {subdomainCheckStatus === 'available' && (
+                  {slugCheckStatus === 'available' && (
                     <div className="flex items-start space-x-2 text-xs text-green-700 bg-green-50 p-2 rounded-lg">
                       <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
                       <div>
                         <p className="font-medium">URL Slug is available!</p>
                         <p className="text-green-600 mt-1 font-mono break-all">
-                          {window.location.origin}/{newTenant.subdomain || ''}
+                          {window.location.origin}/{newTenant.slug || ''}
                         </p>
                       </div>
                     </div>
                   )}
 
-                  {(subdomainCheckStatus === 'taken' || subdomainCheckStatus === 'invalid') && subdomainError && (
+                  {(slugCheckStatus === 'taken' || slugCheckStatus === 'invalid') && slugError && (
                     <div className="text-xs text-red-700 bg-red-50 p-2 rounded-lg">
-                      <p className="font-medium">{subdomainError}</p>
-                      {subdomainSuggestions.length > 0 && (
+                      <p className="font-medium">{slugError}</p>
+                      {slugSuggestions.length > 0 && (
                         <div className="mt-2">
                           <p className="text-red-600 mb-1">Try these alternatives:</p>
                           <div className="flex flex-wrap gap-1">
-                            {subdomainSuggestions.map((suggestion) => (
+                            {slugSuggestions.map((suggestion) => (
                               <button
                                 key={suggestion}
                                 type="button"
@@ -1180,7 +1180,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                     </p>
                   )}
 
-                  {!editingTenant && subdomainCheckStatus === 'idle' && (
+                  {!editingTenant && slugCheckStatus === 'idle' && (
                     <p className="text-xs text-gray-500">
                       Enter at least 3 characters (lowercase letters, numbers, hyphens only)
                     </p>
@@ -1284,7 +1284,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
               </button>
               <button
                 onClick={editingTenant ? handleUpdateTenant : handleCreateTenant}
-                disabled={!newTenant.name || !newTenant.subdomain || (!editingTenant && subdomainCheckStatus !== 'available')}
+                disabled={!newTenant.name || !newTenant.slug || (!editingTenant && slugCheckStatus !== 'available')}
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg flex items-center justify-center"
               >
                 <Save className="w-4 h-4 mr-2" />
@@ -1324,11 +1324,11 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                   </label>
                   <div className="flex items-center space-x-2">
                     <p className="flex-1 text-gray-900 bg-gray-50 px-3 py-2 rounded-lg font-mono text-sm break-all">
-                      {window.location.origin}/{viewingTenant.subdomain}
+                      {window.location.origin}/{viewingTenant.slug}
                     </p>
                     <button
                       onClick={() => {
-                        copyToClipboard(`${window.location.origin}/${viewingTenant.subdomain}`);
+                        copyToClipboard(`${window.location.origin}/${viewingTenant.slug}`);
                         showNotification(notificationHelpers.success(
                           'URL Copied',
                           'URL Slug copied to clipboard!'
@@ -1340,7 +1340,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                       <Copy className="w-4 h-4" />
                     </button>
                     <a
-                      href={getDomainConfig().getLoginUrl(viewingTenant.subdomain)}
+                      href={getDomainConfig().getLoginUrl(viewingTenant.slug)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -1512,7 +1512,7 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLogou
                   setViewingTenant(null);
                   setNewTenant({
                     name: viewingTenant.name,
-                    subdomain: viewingTenant.subdomain,
+                    slug: viewingTenant.slug,
                     status: viewingTenant.status,
                     proprietorName: viewingTenant.proprietorName || '',
                     phoneNumber: viewingTenant.phoneNumber || '',

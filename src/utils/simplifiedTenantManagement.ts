@@ -5,7 +5,7 @@ import { Tenant as DbTenant, TenantInsert } from '../models/tenant.model';
 export interface Tenant {
   id: string;
   name: string;
-  subdomain: string;
+  slug: string;
   status: 'active' | 'inactive';
   created_at: string;
   updated_at: string;
@@ -22,7 +22,7 @@ export interface Tenant {
 const transformDbToUi = (dbTenant: DbTenant): Tenant => ({
   id: dbTenant.id,
   name: dbTenant.name,
-  subdomain: dbTenant.subdomain,
+  slug: dbTenant.slug,
   status: dbTenant.status as 'active' | 'inactive',
   created_at: dbTenant.created_at,
   updated_at: dbTenant.updated_at,
@@ -37,7 +37,7 @@ const transformDbToUi = (dbTenant: DbTenant): Tenant => ({
 
 export interface TenantCreateData {
   name: string;
-  subdomain: string;
+  slug: string;
 }
 
 export const getAllTenants = async (): Promise<Tenant[]> => {
@@ -115,19 +115,19 @@ export const deleteTenant = async (id: string): Promise<void> => {
   if (error) throw error;
 };
 
-export const checkSubdomainAvailability = async (subdomain: string): Promise<boolean> => {
+export const checkSlugAvailability = async (slug: string): Promise<boolean> => {
   const { data, error } = await supabase
     .from('tenants')
     .select('id')
-    .eq('subdomain', subdomain)
+    .eq('slug', slug)
     .maybeSingle();
 
   if (error) throw error;
   return !data;
 };
 
-export const sanitizeSubdomain = (subdomain: string): string => {
-  return subdomain
+export const sanitizeSlug = (slug: string): string => {
+  return slug
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, '')
     .replace(/^-+|-+$/g, '');

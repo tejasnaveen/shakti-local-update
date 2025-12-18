@@ -19,7 +19,7 @@ const LoginPage: React.FC = () => {
 
   usePageConfig('login', getRoleBasedTitle(selectedRole));
 
-  // Check if tenant exists when subdomain is provided
+  // Check if tenant exists when slug is provided
   React.useEffect(() => {
     const checkTenant = async () => {
       if (!tenantSlug) {
@@ -75,7 +75,7 @@ const LoginPage: React.FC = () => {
   }
 
   if (isAuthenticated) {
-    // Redirect to subdomain-based dashboard if subdomain exists
+    // Redirect to slug-based dashboard if slug exists
     if (tenantSlug) {
       const dashboardPath = selectedRole === 'CompanyAdmin' ? '/admin' : '/dashboard';
       return <Navigate to={dashboardPath} replace />;
@@ -149,7 +149,7 @@ const LoginPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Brand Name - Show Tenant Name if subdomain, else Shakti */}
+          {/* Brand Name - Show Tenant Name if slug, else Shakti */}
           {tenantSlug && tenantName ? (
             <>
               <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 mb-2 tracking-tight">
