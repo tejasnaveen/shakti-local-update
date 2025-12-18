@@ -1216,14 +1216,19 @@ export const customerCaseService = {
     try {
       console.log('🔍 getTodayPTPCases called', { tenantId, employeeId });
 
-      const today = new Date().toISOString().split('T')[0];
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
 
       // 1. Find call logs with PTP date = today
       let query = supabase
         .from(CASE_CALL_LOG_TABLE)
         .select('case_id, created_at')
         .eq('tenant_id', tenantId)
-        .eq('ptp_date', today);
+        .gte('ptp_date', startOfDay.toISOString())
+        .lte('ptp_date', endOfDay.toISOString())
+        .or('call_status.ilike.%ptp%,call_status.ilike.%promise%');
 
       if (employeeId) {
         query = query.eq('employee_id', employeeId);
@@ -1268,7 +1273,7 @@ export const customerCaseService = {
 
       return (cases || []).map(c => ({
         ...c,
-        latest_ptp_date: today
+        latest_ptp_date: startOfDay.toISOString().split('T')[0]
       })) as TeamInchargeCase[];
 
     } catch (error) {
