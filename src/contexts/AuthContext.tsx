@@ -72,14 +72,14 @@ export const AuthProvider: React.FC<{ children: ReactNode; initialUser?: User | 
 
   const logout = React.useCallback(async (reason?: string) => {
     if (user?.id) {
-      // Log logout event
-      await securityAuditService.logLogout(user.id, user.tenantId, user.role);
-
-      // Track logout in background with reason
-      activityService.trackLogout(user.id, reason).catch(console.error);
+      try {
+        await securityAuditService.logLogout(user.id, user.tenantId, user.role);
+        await activityService.trackLogout(user.id, reason);
+      } catch (error) {
+        console.error('Error during logout tracking:', error);
+      }
     }
 
-    // Clear tenant context before logging out
     await clearTenantContext();
 
     setUser(null);
