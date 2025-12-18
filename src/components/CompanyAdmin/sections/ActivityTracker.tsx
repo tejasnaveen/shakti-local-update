@@ -8,7 +8,8 @@ import {
     Calendar,
     Filter,
     Download,
-    CheckCircle2
+    CheckCircle2,
+    RefreshCw
 } from 'lucide-react';
 import { activityService, ActivityLog } from '../../../services/activityService';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -19,12 +20,12 @@ export const ActivityTracker: React.FC = () => {
     const { user } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
-    // Change to hold all loaded data
     const [activityData, setActivityData] = useState<ActivityLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [officeHours, setOfficeHours] = useState<{ start: string; end: string } | null>(null);
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     // Pagination state
     const [page, setPage] = useState(0);
@@ -91,26 +92,31 @@ export const ActivityTracker: React.FC = () => {
         }
     }, [user?.tenantId, page]);
 
-    // Separate Refresh function that doesn't depend on page state (always resets)
     const refreshData = useCallback(async () => {
         if (!user?.tenantId) return;
         try {
-            // When refreshing from realtime, we generally want to just reload the first page 
-            // or perhaps smarter updates, but simple reload is safest for consistency
-            const { logs, hasMore: moreAvailable } = await activityService.getActivityLogs(user.tenantId, 0, Math.max(100, activityDataRef.current.length)); // Try to keep current count if possible?
-            // Actually, let's just reset to page 0 to avoid complexity with lists
+            const currentCount = activityDataRef.current.length;
+            const pageSize = Math.max(100, currentCount);
+            const { logs, hasMore: moreAvailable } = await activityService.getActivityLogs(user.tenantId, 0, pageSize);
             setActivityData(logs);
-            setPage(1);
+            setPage(Math.ceil(logs.length / 100));
             setHasMore(moreAvailable);
         } catch (error) {
             console.error('Error refreshing data:', error);
         }
     }, [user?.tenantId]);
 
-    // Initial load
+    const handleManualRefresh = async () => {
+        setIsRefreshing(true);
+        await refreshData();
+        setTimeout(() => setIsRefreshing(false), 500);
+    };
+
     useEffect(() => {
-        fetchActivityData(true);
-    }, [user?.tenantId]); // removed fetchActivityData to avoid double call if it changes
+        if (user?.tenantId) {
+            fetchActivityData(true);
+        }
+    }, [user?.tenantId]);
 
     // Infinite Scroll Observer
     useEffect(() => {
@@ -134,7 +140,6 @@ export const ActivityTracker: React.FC = () => {
         };
     }, [fetchActivityData, hasMore, loading, isLoadMore]);
 
-    // Realtime Subscription
     useEffect(() => {
         if (!user?.tenantId) return;
 
@@ -150,28 +155,27 @@ export const ActivityTracker: React.FC = () => {
                 },
                 (payload) => {
                     if (payload.eventType === 'INSERT') {
-                        // For new logins, we need to fetch employee details, so we refresh
                         refreshData();
                     } else if (payload.eventType === 'UPDATE') {
-                        // For updates (status, break, heartbeat), update local state instantly
-                        const newData = payload.new;
+                        const newData = payload.new as any;
                         setActivityData(prevData =>
                             prevData.map(log => {
                                 if (log.id === newData.employee_id) {
                                     return {
                                         ...log,
-                                        status: newData.status,
-                                        // Update raw fields so the render loop recalculates "X min ago" correctly
-                                        rawLastActive: newData.last_active_time,
+                                        status: newData.status as 'Online' | 'Break' | 'Offline' | 'Idle',
+                                        rawLastActive: newData.last_active_time || log.rawLastActive,
                                         todayTotalBreakMinutes: newData.total_break_time || 0,
-                                        currentBreakStart: newData.current_break_start,
-                                        // If login time changed (unlikely for update, but safe to sync)
-                                        rawLoginTime: newData.login_time
+                                        currentBreakStart: newData.current_break_start || null,
+                                        rawLoginTime: newData.login_time || log.rawLoginTime,
+                                        totalIdleMinutes: newData.total_idle_time || 0
                                     };
                                 }
                                 return log;
                             })
                         );
+                    } else if (payload.eventType === 'DELETE') {
+                        refreshData();
                     }
                 }
             )
@@ -180,7 +184,7 @@ export const ActivityTracker: React.FC = () => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [user?.tenantId, refreshData]);
+    }, [user?.tenantId]);
 
     // Filter logic
     const filteredData = activityData.filter(log => {
@@ -232,19 +236,16 @@ export const ActivityTracker: React.FC = () => {
             totalBreakMinutes += currentBreakDuration;
         }
 
-        // Idle Time Logic
         let status = log.status;
         let totalIdleMinutes = log.totalIdleMinutes || 0;
 
-        // Real-time Idle Detection (3 minutes threshold)
-        // If user is Online but inactive > 3m
         if (status === 'Online' && inactiveMinutes > 3) {
             status = 'Idle';
-            // Current idle duration
-            totalIdleMinutes += inactiveMinutes;
-        } else if (status === 'Idle') {
-            // If already idle, add current idle session
-            totalIdleMinutes += inactiveMinutes;
+        }
+
+        if (status === 'Idle' && inactiveMinutes > 0) {
+            const additionalIdle = Math.max(0, inactiveMinutes - 3);
+            totalIdleMinutes = log.totalIdleMinutes + additionalIdle;
         }
 
         // Productive Time Recalculation
@@ -410,6 +411,14 @@ export const ActivityTracker: React.FC = () => {
                     <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
                         <Calendar className="w-4 h-4" />
                         Today
+                    </button>
+                    <button
+                        onClick={handleManualRefresh}
+                        disabled={isRefreshing}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        Refresh
                     </button>
                     <button
                         onClick={handleExport}
