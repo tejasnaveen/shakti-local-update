@@ -5,6 +5,7 @@ import { customerCaseService, CustomerCase } from '../../services/customerCaseSe
 import { TeamService } from '../../services/teamService';
 import { useNotification } from '../../contexts/NotificationContext';
 import { ProgressModal } from '../shared/ProgressModal';
+import { supabase } from '../../lib/supabase';
 
 type ViewMode = 'all' | 'team' | 'telecaller';
 
@@ -12,6 +13,7 @@ interface CaseWithSelection extends CustomerCase {
   selected?: boolean;
   telecaller_name?: string;
   team_name?: string;
+  last_call_status?: string;
 }
 
 interface BulkAssignData {
@@ -45,6 +47,7 @@ export const AssignCasesView: React.FC = () => {
     telecallerId: '',
     caseStatus: '',
     assignmentStatus: '',
+    callResponse: '',
     dpdMin: '',
     dpdMax: '',
     dateFrom: '',
@@ -100,6 +103,32 @@ export const AssignCasesView: React.FC = () => {
     setCurrentPage(1);
   }, [pageSize, filters]);
 
+  const getLatestCallStatuses = async (caseIds: string[]) => {
+    if (caseIds.length === 0) return {};
+
+    try {
+      const { data, error } = await supabase
+        .from('case_call_logs')
+        .select('case_id, call_status, created_at')
+        .in('case_id', caseIds)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const latestStatuses: Record<string, string> = {};
+      data?.forEach(log => {
+        if (!latestStatuses[log.case_id]) {
+          latestStatuses[log.case_id] = log.call_status;
+        }
+      });
+
+      return latestStatuses;
+    } catch (error) {
+      console.error('Error fetching call statuses:', error);
+      return {};
+    }
+  };
+
   const loadData = async () => {
     if (!user?.tenantId) return;
 
@@ -130,6 +159,9 @@ export const AssignCasesView: React.FC = () => {
       }
       setTelecallers(allTelecallers);
 
+      const caseIds = allCases.map(c => c.id).filter(Boolean);
+      const latestCallStatuses = await getLatestCallStatuses(caseIds);
+
       const casesWithDetails = allCases.map(c => {
         const team = userTeams.find(t => t.id === c.team_id);
         const telecaller = allTelecallers.find(t => t.id === c.telecaller_id);
@@ -137,7 +169,8 @@ export const AssignCasesView: React.FC = () => {
         return {
           ...c,
           team_name: team?.name || 'N/A',
-          telecaller_name: telecaller?.name || '—'
+          telecaller_name: telecaller?.name || '—',
+          last_call_status: latestCallStatuses[c.id] || undefined
         };
       });
 
@@ -178,6 +211,10 @@ export const AssignCasesView: React.FC = () => {
       filtered = filtered.filter(c => c.telecaller_id);
     } else if (filters.assignmentStatus === 'unassigned') {
       filtered = filtered.filter(c => !c.telecaller_id);
+    }
+
+    if (filters.callResponse) {
+      filtered = filtered.filter(c => c.last_call_status === filters.callResponse);
     }
 
     if (filters.dpdMin) {
@@ -250,6 +287,7 @@ export const AssignCasesView: React.FC = () => {
       telecallerId: '',
       caseStatus: '',
       assignmentStatus: '',
+      callResponse: '',
       dpdMin: '',
       dpdMax: '',
       dateFrom: '',
@@ -646,6 +684,29 @@ export const AssignCasesView: React.FC = () => {
                 <option value="pending">New</option>
                 <option value="in_progress">In Progress</option>
                 <option value="closed">Closed</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Call Response</label>
+              <select
+                value={filters.callResponse}
+                onChange={(e) => setFilters({ ...filters, callResponse: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All</option>
+                <option value="WN">Wrong Number</option>
+                <option value="SW">Switched Off</option>
+                <option value="RNR">Ringing No Response</option>
+                <option value="BUSY">Busy</option>
+                <option value="CALL_BACK">Call Back</option>
+                <option value="PTP">Promise to Pay</option>
+                <option value="FUTURE_PTP">Future PTP</option>
+                <option value="BPTP">Broken PTP</option>
+                <option value="RTP">Refused to Pay</option>
+                <option value="NC">Not Connected</option>
+                <option value="CD">Call Disconnected</option>
+                <option value="INC">Incomplete</option>
               </select>
             </div>
 
