@@ -1221,20 +1221,18 @@ export const customerCaseService = {
       const endOfDay = new Date();
       endOfDay.setHours(23, 59, 59, 999);
 
-      // 1. Find call logs with PTP date = today
-      let query = supabase
+      let logsQuery = supabase
         .from(CASE_CALL_LOG_TABLE)
-        .select('case_id, created_at')
-        .eq('tenant_id', tenantId)
+        .select('case_id')
         .gte('ptp_date', startOfDay.toISOString())
         .lte('ptp_date', endOfDay.toISOString())
-        .or('call_status.ilike.%ptp%,call_status.ilike.%promise%');
+        .not('ptp_date', 'is', null);
 
       if (employeeId) {
-        query = query.eq('employee_id', employeeId);
+        logsQuery = logsQuery.eq('employee_id', employeeId);
       }
 
-      const { data: logs, error: logsError } = await query;
+      const { data: logs, error: logsError } = await logsQuery;
 
       if (logsError) {
         console.error('Error fetching PTP logs:', logsError);
@@ -1246,17 +1244,15 @@ export const customerCaseService = {
         return [];
       }
 
-      // Get unique case IDs
       const caseIds = [...new Set(logs.map(log => log.case_id))];
 
       if (caseIds.length === 0) return [];
 
-      // 2. Fetch full case details for these IDs
       const { data: cases, error: casesError } = await supabase
         .from(CUSTOMER_CASE_TABLE)
         .select(`
           *,
-          telecaller:employees!telecaller_id(
+          telecaller:employees!customer_cases_assigned_employee_id_fkey(
             id,
             name,
             emp_id
