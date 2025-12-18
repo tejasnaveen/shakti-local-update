@@ -59,7 +59,15 @@ const Toast: React.FC<ToastProps> = ({
   };
 
   return (
-    <div className={`w-96 max-w-sm bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 ${getBorderColor()}`}>
+    <div
+      className={`
+        w-full max-w-sm bg-white shadow-xl rounded-lg pointer-events-auto
+        ring-1 ring-black ring-opacity-5
+        slide-in-from-right-full fade-in
+        transition-all duration-300 ease-out
+        ${getBorderColor()}
+      `}
+    >
       <div className="p-4">
         <div className="flex items-start">
           <div className="flex-shrink-0">
@@ -77,7 +85,7 @@ const Toast: React.FC<ToastProps> = ({
           </div>
           <div className="ml-4 flex-shrink-0 flex">
             <button
-              className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
               onClick={() => onClose(id)}
             >
               <span className="sr-only">Close</span>
