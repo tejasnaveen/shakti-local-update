@@ -34,15 +34,16 @@ const LoginPage: React.FC = () => {
           .from('tenants')
           .select('id, name, status, slug')
           .eq('slug', tenantSlug)
-          .single();
+          .maybeSingle();
 
         if (error || !data) {
-          console.error('Tenant not found:', tenantSlug);
+          console.error('Tenant not found:', tenantSlug, error);
           setTenantExists(false);
         } else if (data.status !== 'active') {
           console.error('Tenant is not active:', tenantSlug);
           setTenantExists(false);
         } else {
+          console.log('Tenant found:', data.name, 'slug:', data.slug);
           setTenantExists(true);
           setTenantName(data.name);
         }
