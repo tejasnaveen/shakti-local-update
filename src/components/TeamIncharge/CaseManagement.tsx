@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Upload, UserCheck, BarChart3, Plus, TrendingUp, Users, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Upload, UserCheck, BarChart3, Trash2, TrendingUp, Users, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { customerCaseService } from '../../services/customerCaseService';
 import { TeamService } from '../../services/teamService';
-import { UploadCasesModal, AssignCasesModal } from './modals';
+import { UploadCasesModal } from './modals';
+import { AssignCasesView } from './AssignCasesView';
+import { DeleteCasesView } from './DeleteCasesView';
 
 interface DashboardStats {
   totalTeams: number;
@@ -15,12 +17,13 @@ interface DashboardStats {
   closedCases: number;
 }
 
+type ViewType = 'dashboard' | 'upload' | 'assign' | 'delete';
+
 export const CaseManagement: React.FC = () => {
   const { user } = useAuth();
 
-  // Modal states
+  const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showAssignModal, setShowAssignModal] = useState(false);
 
   // Dashboard stats
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
@@ -185,16 +188,26 @@ export const CaseManagement: React.FC = () => {
     },
     {
       title: 'Assign Cases',
-      description: 'Assign or unassign cases to telecallers',
+      description: 'View, assign, reassign, and manage case assignments',
       icon: UserCheck,
       color: 'bg-blue-500',
-      onClick: () => setShowAssignModal(true),
+      onClick: () => setCurrentView('assign'),
       action: 'Manage',
       stats: {
         unassigned: dashboardStats.unassignedCases,
         total: dashboardStats.totalCases,
         inProgress: dashboardStats.inProgressCases
       }
+    },
+    {
+      title: 'Delete Cases',
+      description: 'Delete unassigned or closed cases (Admin only)',
+      icon: Trash2,
+      color: 'bg-red-500',
+      onClick: () => setCurrentView('delete'),
+      action: 'Delete',
+      stats: null,
+      restricted: user?.role !== 'CompanyAdmin'
     }
   ];
 
@@ -215,9 +228,36 @@ export const CaseManagement: React.FC = () => {
     );
   }
 
+  if (currentView === 'assign') {
+    return (
+      <div className="space-y-6">
+        <button
+          onClick={() => setCurrentView('dashboard')}
+          className="flex items-center text-blue-600 hover:text-blue-700 font-medium mb-4"
+        >
+          ← Back to Dashboard
+        </button>
+        <AssignCasesView />
+      </div>
+    );
+  }
+
+  if (currentView === 'delete') {
+    return (
+      <div className="space-y-6">
+        <button
+          onClick={() => setCurrentView('dashboard')}
+          className="flex items-center text-blue-600 hover:text-blue-700 font-medium mb-4"
+        >
+          ← Back to Dashboard
+        </button>
+        <DeleteCasesView />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900 flex items-center">
@@ -229,7 +269,6 @@ export const CaseManagement: React.FC = () => {
           </p>
         </div>
 
-        {/* Dashboard Stats */}
         <div className="p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Overview</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -254,7 +293,6 @@ export const CaseManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Action Cards */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">Case Operations</h3>
@@ -264,6 +302,7 @@ export const CaseManagement: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {getMenuCards().map((card, index) => {
               const IconComponent = card.icon;
+              if (card.restricted) return null;
               return (
                 <div key={index} className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all duration-200 transform hover:-translate-y-1">
                   <div className="flex items-center mb-4">
@@ -288,7 +327,6 @@ export const CaseManagement: React.FC = () => {
                     onClick={card.onClick}
                     className={`w-full py-2 px-4 ${card.color} text-white rounded-lg hover:opacity-90 transition-all duration-200 flex items-center justify-center font-medium`}
                   >
-                    <Plus className="w-4 h-4 mr-2" />
                     {card.action}
                   </button>
                 </div>
@@ -298,7 +336,6 @@ export const CaseManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Recent Activity (Placeholder for future enhancement) */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
@@ -310,16 +347,9 @@ export const CaseManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Modals */}
       <UploadCasesModal
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
-        onSuccess={handleModalSuccess}
-      />
-
-      <AssignCasesModal
-        isOpen={showAssignModal}
-        onClose={() => setShowAssignModal(false)}
         onSuccess={handleModalSuccess}
       />
     </div>
