@@ -129,19 +129,18 @@ export const generateTransactionId = (): string => {
 export const formatDateTime = (date: Date | string): string => {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
 
-  const dateStr = dateObj.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
+  if (isNaN(dateObj.getTime())) {
+    return typeof date === 'string' ? date : '';
+  }
 
-  const timeStr = dateObj.toLocaleTimeString('en-US', {
-    hour: 'numeric',
+  return dateObj.toLocaleString('en-GB', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
     minute: '2-digit',
     hour12: true
   });
-
-  return `${dateStr}, ${timeStr}`;
 };
 
 export const showNotification = (

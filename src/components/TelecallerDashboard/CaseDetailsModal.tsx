@@ -143,22 +143,8 @@ export const CaseDetailsModal: React.FC<CaseDetailsModalProps> = ({ isOpen, onCl
     setIsSubmitting(true);
     try {
       const ptpDateTime = (ptpDate && ptpTime)
-        ? (() => {
-          const tzOffset = -new Date().getTimezoneOffset();
-          const tzHours = Math.floor(Math.abs(tzOffset) / 60).toString().padStart(2, '0');
-          const tzMinutes = (Math.abs(tzOffset) % 60).toString().padStart(2, '0');
-          const tzSign = tzOffset >= 0 ? '+' : '-';
-
-          return `${ptpDate}T${ptpTime}:00${tzSign}${tzHours}:${tzMinutes}`;
-        })()
-        : (ptpDate ? (() => {
-          const tzOffset = -new Date().getTimezoneOffset();
-          const tzHours = Math.floor(Math.abs(tzOffset) / 60).toString().padStart(2, '0');
-          const tzMinutes = (Math.abs(tzOffset) % 60).toString().padStart(2, '0');
-          const tzSign = tzOffset >= 0 ? '+' : '-';
-
-          return `${ptpDate}T09:00:00${tzSign}${tzHours}:${tzMinutes}`;
-        })() : undefined);
+        ? new Date(`${ptpDate}T${ptpTime}`).toISOString()
+        : (ptpDate ? new Date(`${ptpDate}T09:00:00`).toISOString() : undefined);
 
       console.log('Saving call log with data:', {
         case_id: caseData.id,
@@ -214,35 +200,19 @@ export const CaseDetailsModal: React.FC<CaseDetailsModalProps> = ({ isOpen, onCl
 
   const formatDateTime = (dateString: string) => {
     try {
-      // Check if the string already has timezone info (ends with Z or has +/- offset)
-      const hasTimezone = /Z$|[+-]\d{2}:\d{2}$/.test(dateString);
+      const date = new Date(dateString);
 
-      let date: Date;
-      if (hasTimezone) {
-        // New format with timezone - parse normally
-        date = new Date(dateString);
-      } else {
-        // Old format without timezone - treat as local time
-        // Append local timezone offset to ensure it's interpreted as local time
-        const localDate = new Date(dateString);
-        // If the string doesn't have 'T', it might be date-only, handle that
-        if (!dateString.includes('T')) {
-          date = localDate;
-        } else {
-          // For datetime strings without timezone, we need to ensure they're treated as local
-          // The issue is PostgreSQL returns them as-is, but JavaScript interprets them as UTC
-          // So we need to add the timezone offset to get back to local time
-          const offset = new Date().getTimezoneOffset();
-          date = new Date(localDate.getTime() + (offset * 60 * 1000));
-        }
+      if (isNaN(date.getTime())) {
+        return dateString;
       }
 
-      return date.toLocaleString('en-IN', {
+      return date.toLocaleString('en-GB', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        hour12: true
       });
     } catch {
       return dateString;
