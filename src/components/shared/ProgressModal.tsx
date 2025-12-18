@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, AlertCircle, StopCircle } from 'lucide-react';
 import { Progress } from '../ui/progress';
 
 export interface ProgressModalProps {
@@ -15,6 +15,7 @@ export interface ProgressModalProps {
   onCancel?: () => void;
   onClose?: () => void;
   isComplete?: boolean;
+  isCancelling?: boolean;
 }
 
 export const ProgressModal: React.FC<ProgressModalProps> = ({
@@ -29,7 +30,8 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
   errors = [],
   onCancel,
   onClose,
-  isComplete = false
+  isComplete = false,
+  isCancelling = false
 }) => {
   if (!isOpen) return null;
 
@@ -58,16 +60,32 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
 
         <div className="p-6 space-y-6">
           {isProcessing && (
-            <div className="flex items-center gap-3 text-blue-600">
-              <Loader2 className="w-6 h-6 animate-spin" />
-              <div>
-                <p className="font-semibold">
-                  {getOperationText()} case {currentItem} of {totalItems}
-                </p>
-                {currentItemName && (
-                  <p className="text-sm text-gray-600 mt-1">{currentItemName}</p>
-                )}
-              </div>
+            <div className="flex items-center gap-3">
+              {isCancelling ? (
+                <>
+                  <StopCircle className="w-6 h-6 text-red-600 animate-pulse" />
+                  <div>
+                    <p className="font-semibold text-red-600">
+                      Cancelling operation...
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Finishing current item, then stopping
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                  <div>
+                    <p className="font-semibold text-blue-600">
+                      {getOperationText()} case {currentItem} of {totalItems}
+                    </p>
+                    {currentItemName && (
+                      <p className="text-sm text-gray-600 mt-1">{currentItemName}</p>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -147,9 +165,11 @@ export const ProgressModal: React.FC<ProgressModalProps> = ({
             {isProcessing && onCancel && (
               <button
                 onClick={onCancel}
-                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors"
+                disabled={isCancelling}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Cancel Operation
+                <StopCircle className="w-5 h-5" />
+                {isCancelling ? 'Stopping...' : 'Stop Operation'}
               </button>
             )}
             {isComplete && onClose && (

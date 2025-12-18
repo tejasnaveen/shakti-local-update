@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Filter, X, ChevronDown, UserCheck, Users, User, Check, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { customerCaseService, CustomerCase } from '../../services/customerCaseService';
@@ -85,6 +85,8 @@ export const AssignCasesView: React.FC = () => {
     errors: [] as Array<{ id: string; name: string; error: string }>,
     isComplete: false
   });
+  const [isCancelling, setIsCancelling] = useState(false);
+  const cancelOperationRef = useRef(false);
 
   useEffect(() => {
     loadData();
@@ -264,6 +266,8 @@ export const AssignCasesView: React.FC = () => {
 
     const selectedCasesList = cases.filter(c => selectedCases.includes(c.id));
 
+    cancelOperationRef.current = false;
+    setIsCancelling(false);
     setProgressData({
       total: selectedCases.length,
       current: 0,
@@ -282,6 +286,15 @@ export const AssignCasesView: React.FC = () => {
       const errors: Array<{ id: string; name: string; error: string }> = [];
 
       for (let i = 0; i < selectedCases.length; i++) {
+        if (cancelOperationRef.current) {
+          errors.push({
+            id: 'cancelled',
+            name: 'Operation Cancelled',
+            error: `Operation stopped by user. ${selectedCases.length - i} cases remaining.`
+          });
+          break;
+        }
+
         const caseId = selectedCases[i];
         const currentCase = selectedCasesList[i];
         const caseName = currentCase?.customer_name || currentCase?.loan_id || `Case ${i + 1}`;
@@ -338,6 +351,8 @@ export const AssignCasesView: React.FC = () => {
 
     const selectedCasesList = cases.filter(c => selectedCases.includes(c.id));
 
+    cancelOperationRef.current = false;
+    setIsCancelling(false);
     setProgressData({
       total: selectedCases.length,
       current: 0,
@@ -356,6 +371,15 @@ export const AssignCasesView: React.FC = () => {
       const errors: Array<{ id: string; name: string; error: string }> = [];
 
       for (let i = 0; i < selectedCases.length; i++) {
+        if (cancelOperationRef.current) {
+          errors.push({
+            id: 'cancelled',
+            name: 'Operation Cancelled',
+            error: `Operation stopped by user. ${selectedCases.length - i} cases remaining.`
+          });
+          break;
+        }
+
         const caseId = selectedCases[i];
         const currentCase = selectedCasesList[i];
         const caseName = currentCase?.customer_name || currentCase?.loan_id || `Case ${i + 1}`;
@@ -417,6 +441,8 @@ export const AssignCasesView: React.FC = () => {
 
     const selectedCasesList = cases.filter(c => selectedCases.includes(c.id));
 
+    cancelOperationRef.current = false;
+    setIsCancelling(false);
     setProgressData({
       total: selectedCases.length,
       current: 0,
@@ -435,6 +461,15 @@ export const AssignCasesView: React.FC = () => {
       const errors: Array<{ id: string; name: string; error: string }> = [];
 
       for (let i = 0; i < selectedCases.length; i++) {
+        if (cancelOperationRef.current) {
+          errors.push({
+            id: 'cancelled',
+            name: 'Operation Cancelled',
+            error: `Operation stopped by user. ${selectedCases.length - i} cases remaining.`
+          });
+          break;
+        }
+
         const caseId = selectedCases[i];
         const currentCase = selectedCasesList[i];
         const caseName = currentCase?.customer_name || currentCase?.loan_id || `Case ${i + 1}`;
@@ -481,6 +516,11 @@ export const AssignCasesView: React.FC = () => {
       showNotification('Failed to reassign cases', 'error');
       setShowProgress(false);
     }
+  };
+
+  const handleCancelOperation = () => {
+    cancelOperationRef.current = true;
+    setIsCancelling(true);
   };
 
   if (loading) {
@@ -979,6 +1019,8 @@ export const AssignCasesView: React.FC = () => {
         currentItemName={progressData.currentItemName}
         errors={progressData.errors}
         isComplete={progressData.isComplete}
+        isCancelling={isCancelling}
+        onCancel={handleCancelOperation}
         onClose={() => setShowProgress(false)}
       />
     </div>

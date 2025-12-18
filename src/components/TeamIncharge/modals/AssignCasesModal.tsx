@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, User, DollarSign, MapPin, FileText } from 'lucide-react';
 import { customerCaseService } from '../../../services/customerCaseService';
 import { TeamService } from '../../../services/teamService';
@@ -51,6 +51,8 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
     errors: [] as Array<{ id: string; name: string; error: string }>,
     isComplete: false
   });
+  const [isCancelling, setIsCancelling] = useState(false);
+  const cancelOperationRef = useRef(false);
 
   // Load cases for a team
   const loadTeamCases = useCallback(async (teamId: string) => {
@@ -192,6 +194,8 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
     const selectedCaseIds = Array.from(selectedCases);
     const casesList = allCases.filter(c => selectedCaseIds.includes(c.id));
 
+    cancelOperationRef.current = false;
+    setIsCancelling(false);
     setProgressData({
       total: selectedCaseIds.length,
       current: 0,
@@ -211,6 +215,15 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
       const errors: Array<{ id: string; name: string; error: string }> = [];
 
       for (let i = 0; i < selectedCaseIds.length; i++) {
+        if (cancelOperationRef.current) {
+          errors.push({
+            id: 'cancelled',
+            name: 'Operation Cancelled',
+            error: `Operation stopped by user. ${selectedCaseIds.length - i} cases remaining.`
+          });
+          break;
+        }
+
         const caseId = selectedCaseIds[i];
         const currentCase = casesList[i];
         const caseName = currentCase?.case_data?.customerName || currentCase?.case_data?.loanId || `Case ${i + 1}`;
@@ -401,6 +414,8 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
     const selectedCaseIds = Array.from(selectedCases);
     const casesList = allCases.filter(c => selectedCaseIds.includes(c.id));
 
+    cancelOperationRef.current = false;
+    setIsCancelling(false);
     setProgressData({
       total: selectedCaseIds.length,
       current: 0,
@@ -420,6 +435,15 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
       const errors: Array<{ id: string; name: string; error: string }> = [];
 
       for (let i = 0; i < selectedCaseIds.length; i++) {
+        if (cancelOperationRef.current) {
+          errors.push({
+            id: 'cancelled',
+            name: 'Operation Cancelled',
+            error: `Operation stopped by user. ${selectedCaseIds.length - i} cases remaining.`
+          });
+          break;
+        }
+
         const caseId = selectedCaseIds[i];
         const currentCase = casesList[i];
         const caseName = currentCase?.case_data?.customerName || currentCase?.case_data?.loanId || `Case ${i + 1}`;
@@ -468,6 +492,11 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
     }
   };
 
+  const handleCancelOperation = () => {
+    cancelOperationRef.current = true;
+    setIsCancelling(true);
+  };
+
   const resetModal = () => {
     setAllCases([]);
     setFilteredCases([]);
@@ -484,6 +513,8 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
     setActionType('assign');
     setSelectedCaseForView(null);
     setIsDetailsOpen(false);
+    cancelOperationRef.current = false;
+    setIsCancelling(false);
   };
 
   const handleClose = () => {
@@ -769,6 +800,8 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
         currentItemName={progressData.currentItemName}
         errors={progressData.errors}
         isComplete={progressData.isComplete}
+        isCancelling={isCancelling}
+        onCancel={handleCancelOperation}
         onClose={() => setShowProgress(false)}
       />
     </div >
