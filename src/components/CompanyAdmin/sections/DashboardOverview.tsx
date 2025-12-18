@@ -116,7 +116,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           .eq('customer_cases.tenant_id', user.tenantId)
           .eq('call_status', 'CALL_BACK')
           .eq('callback_completed', false)
-          .lt('callback_date', new Date().toISOString().split('T')[0]);
+          .lt('callback_datetime', new Date().toISOString());
 
         // Fetch last 7 days data for charts
         const last7Days = Array.from({ length: 7 }, (_, i) => {

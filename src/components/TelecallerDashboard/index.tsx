@@ -808,15 +808,16 @@ export const TelecallerDashboard: React.FC<TelecallerDashboardProps> = ({ user, 
                 call_notes: logData.remarks,
                 call_duration: parseInt(logData.callDuration) || 0,
                 ptp_date: logData.ptpDate ? (() => {
-                  // Create a Date object from the local date and time
                   const dateTimeString = `${logData.ptpDate}T${logData.ptpTime || '00:00'}:00`;
                   const localDate = new Date(dateTimeString);
-                  // Convert to ISO string which includes timezone offset
                   return localDate.toISOString();
                 })() : undefined,
                 amount_collected: logData.ptpAmount,
-                callback_date: logData.callbackDate,
-                callback_time: logData.callbackTime
+                callback_datetime: (logData.callbackDate && logData.callbackTime) ? (() => {
+                  const dateTimeString = `${logData.callbackDate}T${logData.callbackTime}:00`;
+                  const localDate = new Date(dateTimeString);
+                  return localDate.toISOString();
+                })() : undefined
               });
 
               showNotification(notificationHelpers.success(

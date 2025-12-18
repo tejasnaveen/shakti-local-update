@@ -60,8 +60,7 @@ export interface CallLog {
   call_duration?: number;
   call_result?: string;
   amount_collected?: string;
-  callback_date?: string;
-  callback_time?: string;
+  callback_datetime?: string;
   callback_completed?: boolean;
   created_at?: string;
 }

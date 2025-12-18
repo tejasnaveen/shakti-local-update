@@ -146,11 +146,16 @@ export const CaseDetailsModal: React.FC<CaseDetailsModalProps> = ({ isOpen, onCl
         ? new Date(`${ptpDate}T${ptpTime}`).toISOString()
         : (ptpDate ? new Date(`${ptpDate}T09:00:00`).toISOString() : undefined);
 
+      const callbackDateTime = (callbackDate && callbackTime)
+        ? new Date(`${callbackDate}T${callbackTime}`).toISOString()
+        : undefined;
+
       console.log('Saving call log with data:', {
         case_id: caseData.id,
         employee_id: user.id,
         call_status: callStatus,
         ptp_date: ptpDateTime,
+        callback_datetime: callbackDateTime,
         call_notes: remarks
       });
 
@@ -163,8 +168,7 @@ export const CaseDetailsModal: React.FC<CaseDetailsModalProps> = ({ isOpen, onCl
         call_notes: remarks,
         call_duration: undefined,
         amount_collected: undefined,
-        callback_date: callbackDate || undefined,
-        callback_time: callbackTime || undefined,
+        callback_datetime: callbackDateTime,
         callback_completed: false
       });
 

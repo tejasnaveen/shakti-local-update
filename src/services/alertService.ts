@@ -16,8 +16,7 @@ interface PtpData {
 interface CallbackData {
     id: string;
     created_at: string;
-    callback_date: string;
-    callback_time: string;
+    callback_datetime: string;
     call_notes: string;
     case_id: string;
     customer_cases: {
@@ -73,8 +72,7 @@ export const AlertService = {
                 .select(`
           id,
           created_at,
-          callback_date,
-          callback_time,
+          callback_datetime,
           call_notes,
           case_id,
           customer_cases!inner (
@@ -86,8 +84,8 @@ export const AlertService = {
                 .eq('employee_id', userId)
                 .eq('call_status', 'CALL_BACK')
                 .eq('callback_completed', false)
-                .gte('callback_date', startOfDay.toISOString().split('T')[0])
-                .lte('callback_date', endOfDay.toISOString().split('T')[0]);
+                .gte('callback_datetime', startOfDay.toISOString())
+                .lte('callback_datetime', endOfDay.toISOString());
 
             // 3. Fetch Viewed Logs for today
             const { data: viewedLogs } = await supabase
@@ -133,9 +131,8 @@ export const AlertService = {
             // Process Callbacks
             if (callbacks) {
                 (callbacks as unknown as CallbackData[]).forEach((cb) => {
-                    if (!cb.callback_date) return;
-                    const timeStr = cb.callback_time || '00:00:00';
-                    const dueDate = new Date(`${cb.callback_date}T${timeStr}`);
+                    if (!cb.callback_datetime) return;
+                    const dueDate = new Date(cb.callback_datetime);
                     const isViewed = viewedCaseIds.has(cb.customer_cases.id);
 
                     let status: 'RED' | 'YELLOW' | 'GREEN' = 'GREEN';
@@ -237,8 +234,7 @@ export const AlertService = {
                 .select(`
                     id,
                     created_at,
-                    callback_date,
-                    callback_time,
+                    callback_datetime,
                     call_notes,
                     case_id,
                     employee_id,
@@ -252,8 +248,8 @@ export const AlertService = {
                 .eq('customer_cases.tenant_id', tenantId)
                 .eq('call_status', 'CALL_BACK')
                 .eq('callback_completed', false)
-                .gte('callback_date', startOfDay.toISOString().split('T')[0])
-                .lte('callback_date', endOfDay.toISOString().split('T')[0]);
+                .gte('callback_datetime', startOfDay.toISOString())
+                .lte('callback_datetime', endOfDay.toISOString());
 
             const alerts: AlertCase[] = [];
 
@@ -285,9 +281,8 @@ export const AlertService = {
             // Process Callbacks
             if (callbacks) {
                 (callbacks as unknown as CallbackData[]).forEach((cb) => {
-                    if (!cb.callback_date) return;
-                    const timeStr = cb.callback_time || '00:00:00';
-                    const dueDate = new Date(`${cb.callback_date}T${timeStr}`);
+                    if (!cb.callback_datetime) return;
+                    const dueDate = new Date(cb.callback_datetime);
                     let status: 'RED' | 'YELLOW' | 'GREEN' = 'GREEN';
 
                     if (dueDate <= now) {
@@ -420,9 +415,8 @@ export const AlertService = {
             // Process Callbacks
             if (callbacks) {
                 (callbacks as unknown as CallbackData[]).forEach((cb) => {
-                    if (!cb.callback_date) return;
-                    const timeStr = cb.callback_time || '00:00:00';
-                    const dueDate = new Date(`${cb.callback_date}T${timeStr}`);
+                    if (!cb.callback_datetime) return;
+                    const dueDate = new Date(cb.callback_datetime);
                     let status: 'RED' | 'YELLOW' | 'GREEN' = 'GREEN';
 
                     if (dueDate <= now) {

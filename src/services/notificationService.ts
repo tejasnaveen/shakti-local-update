@@ -39,8 +39,7 @@ interface PtpNotificationData {
 
 interface CallbackNotificationData {
     id: string;
-    callback_date: string;
-    callback_time: string;
+    callback_datetime: string;
     call_notes: string;
     customer_cases: {
         customer_name: string;
@@ -290,17 +289,15 @@ export const NotificationService = {
                 .from('case_call_logs')
                 .select(`
           id,
-          callback_date,
-          callback_time,
+          callback_datetime,
           call_notes,
           customer_cases (customer_name)
         `)
                 .eq('employee_id', userId)
                 .eq('call_status', 'CALL_BACK')
                 .eq('callback_completed', false)
-                .not('callback_date', 'is', null)
-                .order('callback_date', { ascending: true })
-                .order('callback_time', { ascending: true })
+                .not('callback_datetime', 'is', null)
+                .order('callback_datetime', { ascending: true })
                 .limit(10);
 
             if (callbacks) {
@@ -308,17 +305,23 @@ export const NotificationService = {
                     const id = `callback-${c.id}`;
                     if (dismissedIds.has(id)) return;
 
-                    const callbackDateTime = new Date(`${c.callback_date}T${c.callback_time || '00:00'}`);
+                    const callbackDateTime = new Date(c.callback_datetime);
                     const isOverdue = callbackDateTime < now;
-                    const isToday = c.callback_date === today.toISOString().split('T')[0];
+                    const isToday = callbackDateTime.toISOString().split('T')[0] === today.toISOString().split('T')[0];
+
+                    const timeStr = callbackDateTime.toLocaleTimeString('en-GB', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    });
 
                     notifications.push({
                         id,
                         title: isOverdue ? '🚨 Overdue Callback' : isToday ? 'Callback Today' : 'Upcoming Callback',
-                        description: `Call back ${c.customer_cases?.customer_name || 'Customer'} ${isOverdue ? 'ASAP' : `at ${c.callback_time || 'scheduled time'}`}`,
+                        description: `Call back ${c.customer_cases?.customer_name || 'Customer'} ${isOverdue ? 'ASAP' : `at ${timeStr}`}`,
                         time: isOverdue ? 'Overdue!' : getTimeAgo(callbackDateTime),
                         timestamp: callbackDateTime,
-                        isRead: false, // Always unread to ensure visibility
+                        isRead: false,
                         category: 'Follow-ups',
                         color: isOverdue ? 'red' : 'orange'
                     });
