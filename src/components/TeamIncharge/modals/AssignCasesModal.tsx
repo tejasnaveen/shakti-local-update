@@ -5,6 +5,7 @@ import { TeamService } from '../../../services/teamService';
 import { useNotification, notificationHelpers } from '../../shared/Notification';
 import { useAuth } from '../../../contexts/AuthContext';
 import type { TeamInchargeCase } from '../../../types/caseManagement';
+import { ProgressModal } from '../../shared/ProgressModal';
 
 interface AssignCasesModalProps {
   isOpen: boolean;
@@ -38,6 +39,18 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
   // Case View State
   const [selectedCaseForView, setSelectedCaseForView] = useState<TeamInchargeCase | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+  // Progress tracking state
+  const [showProgress, setShowProgress] = useState(false);
+  const [progressData, setProgressData] = useState({
+    total: 0,
+    current: 0,
+    successCount: 0,
+    errorCount: 0,
+    currentItemName: '',
+    errors: [] as Array<{ id: string; name: string; error: string }>,
+    isComplete: false
+  });
 
   // Load cases for a team
   const loadTeamCases = useCallback(async (teamId: string) => {
@@ -176,18 +189,38 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
       return;
     }
 
+    const selectedCaseIds = Array.from(selectedCases);
+    const casesList = allCases.filter(c => selectedCaseIds.includes(c.id));
+
+    setProgressData({
+      total: selectedCaseIds.length,
+      current: 0,
+      successCount: 0,
+      errorCount: 0,
+      currentItemName: '',
+      errors: [],
+      isComplete: false
+    });
+    setShowProgress(true);
+
     try {
       setIsLoading(true);
 
-
-
-      const selectedCaseIds = Array.from(selectedCases);
       let successCount = 0;
       let errorCount = 0;
-
+      const errors: Array<{ id: string; name: string; error: string }> = [];
 
       for (let i = 0; i < selectedCaseIds.length; i++) {
         const caseId = selectedCaseIds[i];
+        const currentCase = casesList[i];
+        const caseName = currentCase?.case_data?.customerName || currentCase?.case_data?.loanId || `Case ${i + 1}`;
+
+        setProgressData(prev => ({
+          ...prev,
+          current: i + 1,
+          currentItemName: caseName
+        }));
+
         try {
           if (actionType === 'assign') {
             await customerCaseService.assignCase(caseId, { caseId, telecallerId: selectedTelecallerId, assignedBy: user!.id });
@@ -197,26 +230,35 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
             await customerCaseService.updateCase(caseId, { team_id: selectedTargetTeamId });
           }
           successCount++;
-        } catch {
+          setProgressData(prev => ({ ...prev, successCount: successCount }));
+        } catch (error) {
           errorCount++;
-
+          errors.push({
+            id: caseId,
+            name: caseName,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          setProgressData(prev => ({ ...prev, errorCount: errorCount, errors }));
         }
-
       }
 
-
+      setProgressData(prev => ({ ...prev, isComplete: true }));
 
       if (successCount > 0) {
-        showNotification(notificationHelpers.success('Operation Complete', `Successfully processed ${successCount} cases`));
         await loadTeamCases(selectedTeam);
         onSuccess();
       }
-      if (errorCount > 0) {
-        showNotification(notificationHelpers.warning('Operation Completed with Errors', `${errorCount} cases failed`));
-      }
+
+      setTimeout(() => {
+        if (errorCount === 0) {
+          setShowProgress(false);
+          showNotification(notificationHelpers.success('Operation Complete', `Successfully processed ${successCount} cases`));
+        }
+      }, 2000);
     } catch (error: unknown) {
       console.error('Bulk operation error:', error);
       showNotification(notificationHelpers.error('Operation Failed', error instanceof Error ? error.message : 'Failed to process cases'));
+      setShowProgress(false);
     } finally {
       setIsLoading(false);
     }
@@ -353,45 +395,76 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
 
   const handleBulkDelete = async () => {
     if (selectedCases.size === 0) return;
+
+    setShowBulkDeleteConfirm(false);
+
+    const selectedCaseIds = Array.from(selectedCases);
+    const casesList = allCases.filter(c => selectedCaseIds.includes(c.id));
+
+    setProgressData({
+      total: selectedCaseIds.length,
+      current: 0,
+      successCount: 0,
+      errorCount: 0,
+      currentItemName: '',
+      errors: [],
+      isComplete: false
+    });
+    setShowProgress(true);
+
     try {
       setIsLoading(true);
 
-
-
-      const selectedCaseIds = Array.from(selectedCases);
       let successCount = 0;
       let errorCount = 0;
-
+      const errors: Array<{ id: string; name: string; error: string }> = [];
 
       for (let i = 0; i < selectedCaseIds.length; i++) {
         const caseId = selectedCaseIds[i];
+        const currentCase = casesList[i];
+        const caseName = currentCase?.case_data?.customerName || currentCase?.case_data?.loanId || `Case ${i + 1}`;
+
+        setProgressData(prev => ({
+          ...prev,
+          current: i + 1,
+          currentItemName: caseName
+        }));
+
         try {
           await customerCaseService.deleteCase(caseId);
           successCount++;
-        } catch {
+          setProgressData(prev => ({ ...prev, successCount: successCount }));
+        } catch (error) {
           errorCount++;
-
+          errors.push({
+            id: caseId,
+            name: caseName,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          setProgressData(prev => ({ ...prev, errorCount: errorCount, errors }));
         }
-
       }
 
-
+      setProgressData(prev => ({ ...prev, isComplete: true }));
 
       if (successCount > 0) {
-        showNotification(notificationHelpers.success('Bulk Delete Complete', `Successfully deleted ${successCount} cases`));
         await loadTeamCases(selectedTeam);
         setSelectedCases(new Set());
         onSuccess();
       }
-      if (errorCount > 0) {
-        showNotification(notificationHelpers.warning('Delete Completed with Errors', `${errorCount} cases failed to delete`));
-      }
+
+      setTimeout(() => {
+        if (errorCount === 0) {
+          setShowProgress(false);
+          showNotification(notificationHelpers.success('Bulk Delete Complete', `Successfully deleted ${successCount} cases`));
+        }
+      }, 2000);
     } catch (error: unknown) {
       console.error('Bulk delete error:', error);
       showNotification(notificationHelpers.error('Bulk Delete Failed', error instanceof Error ? error.message : 'Failed to delete cases'));
+      setShowProgress(false);
     } finally {
       setIsLoading(false);
-      setShowBulkDeleteConfirm(false);
     }
   };
 
@@ -678,6 +751,26 @@ export const AssignCasesModal: React.FC<AssignCasesModalProps> = ({
           </div>
         )
       }
+
+      {/* Progress Modal */}
+      <ProgressModal
+        isOpen={showProgress}
+        title={
+          actionType === 'assign' ? 'Assigning Cases' :
+          actionType === 'unassign' ? 'Unassigning Cases' :
+          actionType === 'change_team' ? 'Moving Cases to New Team' :
+          'Processing Cases'
+        }
+        operationType={actionType === 'change_team' ? 'reassign' : actionType}
+        totalItems={progressData.total}
+        currentItem={progressData.current}
+        successCount={progressData.successCount}
+        errorCount={progressData.errorCount}
+        currentItemName={progressData.currentItemName}
+        errors={progressData.errors}
+        isComplete={progressData.isComplete}
+        onClose={() => setShowProgress(false)}
+      />
     </div >
   );
 };

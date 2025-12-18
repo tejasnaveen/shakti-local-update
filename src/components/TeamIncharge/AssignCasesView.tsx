@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { customerCaseService, CustomerCase } from '../../services/customerCaseService';
 import { TeamService } from '../../services/teamService';
 import { useNotification } from '../../contexts/NotificationContext';
+import { ProgressModal } from '../shared/ProgressModal';
 
 type ViewMode = 'all' | 'team' | 'telecaller';
 
@@ -73,6 +74,17 @@ export const AssignCasesView: React.FC = () => {
   });
 
   const [unassignReason, setUnassignReason] = useState('');
+
+  const [showProgress, setShowProgress] = useState(false);
+  const [progressData, setProgressData] = useState({
+    total: 0,
+    current: 0,
+    successCount: 0,
+    errorCount: 0,
+    currentItemName: '',
+    errors: [] as Array<{ id: string; name: string; error: string }>,
+    isComplete: false
+  });
 
   useEffect(() => {
     loadData();
@@ -250,21 +262,71 @@ export const AssignCasesView: React.FC = () => {
       return;
     }
 
+    const selectedCasesList = cases.filter(c => selectedCases.includes(c.id));
+
+    setProgressData({
+      total: selectedCases.length,
+      current: 0,
+      successCount: 0,
+      errorCount: 0,
+      currentItemName: '',
+      errors: [],
+      isComplete: false
+    });
+    setShowProgress(true);
+    setShowAssignModal(false);
+
     try {
-      for (const caseId of selectedCases) {
-        await customerCaseService.assignCase(caseId, {
-          telecallerId: bulkAssignData.telecallerId
-        });
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: Array<{ id: string; name: string; error: string }> = [];
+
+      for (let i = 0; i < selectedCases.length; i++) {
+        const caseId = selectedCases[i];
+        const currentCase = selectedCasesList[i];
+        const caseName = currentCase?.customer_name || currentCase?.loan_id || `Case ${i + 1}`;
+
+        setProgressData(prev => ({
+          ...prev,
+          current: i + 1,
+          currentItemName: caseName
+        }));
+
+        try {
+          await customerCaseService.assignCase(caseId, {
+            telecallerId: bulkAssignData.telecallerId
+          });
+          successCount++;
+          setProgressData(prev => ({ ...prev, successCount: successCount }));
+        } catch (error) {
+          errorCount++;
+          errors.push({
+            id: caseId,
+            name: caseName,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          setProgressData(prev => ({ ...prev, errorCount: errorCount, errors }));
+        }
       }
 
-      showNotification(`Successfully assigned ${selectedCases.length} cases`, 'success');
-      setShowAssignModal(false);
-      setSelectedCases([]);
-      setBulkAssignData({ teamId: '', telecallerId: '', priority: 'medium' });
-      loadData();
+      setProgressData(prev => ({ ...prev, isComplete: true }));
+
+      if (successCount > 0) {
+        setSelectedCases([]);
+        setBulkAssignData({ teamId: '', telecallerId: '', priority: 'medium' });
+        loadData();
+      }
+
+      setTimeout(() => {
+        if (errorCount === 0) {
+          setShowProgress(false);
+          showNotification(`Successfully assigned ${successCount} cases`, 'success');
+        }
+      }, 2000);
     } catch (error) {
       console.error('Error assigning cases:', error);
       showNotification('Failed to assign cases', 'error');
+      setShowProgress(false);
     }
   };
 
@@ -274,21 +336,71 @@ export const AssignCasesView: React.FC = () => {
       return;
     }
 
+    const selectedCasesList = cases.filter(c => selectedCases.includes(c.id));
+
+    setProgressData({
+      total: selectedCases.length,
+      current: 0,
+      successCount: 0,
+      errorCount: 0,
+      currentItemName: '',
+      errors: [],
+      isComplete: false
+    });
+    setShowProgress(true);
+    setShowUnassignModal(false);
+
     try {
-      for (const caseId of selectedCases) {
-        await customerCaseService.assignCase(caseId, {
-          telecallerId: undefined
-        });
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: Array<{ id: string; name: string; error: string }> = [];
+
+      for (let i = 0; i < selectedCases.length; i++) {
+        const caseId = selectedCases[i];
+        const currentCase = selectedCasesList[i];
+        const caseName = currentCase?.customer_name || currentCase?.loan_id || `Case ${i + 1}`;
+
+        setProgressData(prev => ({
+          ...prev,
+          current: i + 1,
+          currentItemName: caseName
+        }));
+
+        try {
+          await customerCaseService.assignCase(caseId, {
+            telecallerId: undefined
+          });
+          successCount++;
+          setProgressData(prev => ({ ...prev, successCount: successCount }));
+        } catch (error) {
+          errorCount++;
+          errors.push({
+            id: caseId,
+            name: caseName,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          setProgressData(prev => ({ ...prev, errorCount: errorCount, errors }));
+        }
       }
 
-      showNotification(`Successfully unassigned ${selectedCases.length} cases`, 'success');
-      setShowUnassignModal(false);
-      setSelectedCases([]);
-      setUnassignReason('');
-      loadData();
+      setProgressData(prev => ({ ...prev, isComplete: true }));
+
+      if (successCount > 0) {
+        setSelectedCases([]);
+        setUnassignReason('');
+        loadData();
+      }
+
+      setTimeout(() => {
+        if (errorCount === 0) {
+          setShowProgress(false);
+          showNotification(`Successfully unassigned ${successCount} cases`, 'success');
+        }
+      }, 2000);
     } catch (error) {
       console.error('Error unassigning cases:', error);
       showNotification('Failed to unassign cases', 'error');
+      setShowProgress(false);
     }
   };
 
@@ -303,21 +415,71 @@ export const AssignCasesView: React.FC = () => {
       return;
     }
 
+    const selectedCasesList = cases.filter(c => selectedCases.includes(c.id));
+
+    setProgressData({
+      total: selectedCases.length,
+      current: 0,
+      successCount: 0,
+      errorCount: 0,
+      currentItemName: '',
+      errors: [],
+      isComplete: false
+    });
+    setShowProgress(true);
+    setShowReassignModal(false);
+
     try {
-      for (const caseId of selectedCases) {
-        await customerCaseService.assignCase(caseId, {
-          telecallerId: bulkReassignData.toTelecallerId
-        });
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: Array<{ id: string; name: string; error: string }> = [];
+
+      for (let i = 0; i < selectedCases.length; i++) {
+        const caseId = selectedCases[i];
+        const currentCase = selectedCasesList[i];
+        const caseName = currentCase?.customer_name || currentCase?.loan_id || `Case ${i + 1}`;
+
+        setProgressData(prev => ({
+          ...prev,
+          current: i + 1,
+          currentItemName: caseName
+        }));
+
+        try {
+          await customerCaseService.assignCase(caseId, {
+            telecallerId: bulkReassignData.toTelecallerId
+          });
+          successCount++;
+          setProgressData(prev => ({ ...prev, successCount: successCount }));
+        } catch (error) {
+          errorCount++;
+          errors.push({
+            id: caseId,
+            name: caseName,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          setProgressData(prev => ({ ...prev, errorCount: errorCount, errors }));
+        }
       }
 
-      showNotification(`Successfully reassigned ${selectedCases.length} cases`, 'success');
-      setShowReassignModal(false);
-      setSelectedCases([]);
-      setBulkReassignData({ toTeamId: '', toTelecallerId: '', reason: '' });
-      loadData();
+      setProgressData(prev => ({ ...prev, isComplete: true }));
+
+      if (successCount > 0) {
+        setSelectedCases([]);
+        setBulkReassignData({ toTeamId: '', toTelecallerId: '', reason: '' });
+        loadData();
+      }
+
+      setTimeout(() => {
+        if (errorCount === 0) {
+          setShowProgress(false);
+          showNotification(`Successfully reassigned ${successCount} cases`, 'success');
+        }
+      }, 2000);
     } catch (error) {
       console.error('Error reassigning cases:', error);
       showNotification('Failed to reassign cases', 'error');
+      setShowProgress(false);
     }
   };
 
@@ -797,6 +959,28 @@ export const AssignCasesView: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ProgressModal
+        isOpen={showProgress}
+        title={
+          showAssignModal || bulkAssignData.telecallerId ? 'Assigning Cases' :
+          showUnassignModal || unassignReason ? 'Unassigning Cases' :
+          'Reassigning Cases'
+        }
+        operationType={
+          showAssignModal || bulkAssignData.telecallerId ? 'assign' :
+          showUnassignModal || unassignReason ? 'unassign' :
+          'reassign'
+        }
+        totalItems={progressData.total}
+        currentItem={progressData.current}
+        successCount={progressData.successCount}
+        errorCount={progressData.errorCount}
+        currentItemName={progressData.currentItemName}
+        errors={progressData.errors}
+        isComplete={progressData.isComplete}
+        onClose={() => setShowProgress(false)}
+      />
     </div>
   );
 };
