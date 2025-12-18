@@ -126,12 +126,22 @@ export const generateTransactionId = (): string => {
   return `TXN${Date.now()}${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
 };
 
-export const formatDateTime = (date: Date): string => {
-  return date.toLocaleTimeString('en-US', {
+export const formatDateTime = (date: Date | string): string => {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+
+  const dateStr = dateObj.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+
+  const timeStr = dateObj.toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
   });
+
+  return `${dateStr}, ${timeStr}`;
 };
 
 export const showNotification = (
